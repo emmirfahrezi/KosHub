@@ -632,10 +632,16 @@ class _HomePageState extends State<HomePage> {
           const SnackBar(content: Text('Data demo berhasil dimuat.')),
         );
       }
+    } on FirebaseException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_firebaseMessage(error))),
+        );
+      }
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Gagal membuat data demo.')),
+          const SnackBar(content: Text('Gagal membuat data demo. Coba lagi.')),
         );
       }
     }
@@ -1859,10 +1865,9 @@ class FirestoreService {
       'role': existingData?['role'] as String? ?? 'penyewa',
       'is_active': true,
       'photo_url': user.photoURL,
-      'created_at':
-          existingData == null
-              ? FieldValue.serverTimestamp()
-              : existingData['created_at'],
+      'created_at': existingData == null
+          ? FieldValue.serverTimestamp()
+          : existingData['created_at'],
     }, SetOptions(merge: true));
   }
 
@@ -1940,28 +1945,45 @@ class FirestoreService {
   }
 
   Future<void> seedSampleData() async {
-    final ownerRina = _users.doc('demo-owner-rina');
-    final ownerDimas = _users.doc('demo-owner-dimas');
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw FirebaseException(
+        plugin: 'cloud_firestore',
+        code: 'unauthenticated',
+        message: 'Login dulu untuk membuat data demo.',
+      );
+    }
+
+    final ownerName = user.displayName?.trim().isNotEmpty == true
+        ? user.displayName!.trim()
+        : user.email?.split('@').first ?? 'Pemilik Kos Demo';
+    final ownerPhoto =
+        user.photoURL ??
+        'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=300&q=80';
+    final userRef = _users.doc(user.uid);
+    final kosMenteng = _kos.doc('demo-${user.uid}-menteng');
+    final kosKemang = _kos.doc('demo-${user.uid}-kemang');
 
     await Future.wait([
-      ownerRina.set({
-        'name': 'Bu Rina',
-        'email': 'rina-owner@koshub.id',
+      userRef.set({
+        'name': ownerName,
+        'email': user.email,
         'role': 'pemilik',
         'is_active': true,
-        'photo_url':
-            'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=300&q=80',
+        'photo_url': ownerPhoto,
+        'owner_status': 'Online',
+        'updated_at': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true)),
-      ownerDimas.set({
-        'name': 'Pak Dimas',
-        'email': 'dimas-owner@koshub.id',
-        'role': 'pemilik',
-        'is_active': true,
-        'photo_url':
-            'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=300&q=80',
-      }, SetOptions(merge: true)),
-      _kos.doc('kos-1').set(_sampleKosMap1),
-      _kos.doc('kos-2').set(_sampleKosMap2),
+      kosMenteng.set(_sampleKosMap1.forOwner(
+        ownerId: user.uid,
+        ownerName: ownerName,
+        ownerPhoto: ownerPhoto,
+      )),
+      kosKemang.set(_sampleKosMap2.forOwner(
+        ownerId: user.uid,
+        ownerName: ownerName,
+        ownerPhoto: ownerPhoto,
+      )),
     ]);
   }
 
@@ -2015,11 +2037,7 @@ class FirestoreService {
               if (kos == null) {
                 return null;
               }
-              return ChatPreviewData.fromMap(
-                id: doc.id,
-                data: data,
-                kos: kos,
-              );
+              return ChatPreviewData.fromMap(id: doc.id, data: data, kos: kos);
             }),
           );
           final resolved = items.whereType<ChatPreviewData>().toList();
@@ -3316,6 +3334,23 @@ String _formatTime(DateTime dateTime) {
 int _totalPrice(int monthlyPrice, String durationLabel) {
   final months = int.tryParse(durationLabel.split(' ').first) ?? 1;
   return monthlyPrice * months;
+}
+
+extension _DemoKosOwner on Map<String, dynamic> {
+  Map<String, dynamic> forOwner({
+    required String ownerId,
+    required String ownerName,
+    required String ownerPhoto,
+  }) {
+    return {
+      ...this,
+      'owner_id': ownerId,
+      'owner_name': ownerName,
+      'owner_status': 'Online',
+      'owner_photo': ownerPhoto,
+      'updated_at': FieldValue.serverTimestamp(),
+    };
+  }
 }
 
 const Map<String, dynamic> _sampleKosMap1 = {

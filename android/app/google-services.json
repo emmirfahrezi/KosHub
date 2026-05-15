@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "477166890936",
-    "project_id": "koshub-d9acd",
-    "storage_bucket": "koshub-d9acd.firebasestorage.app"
+    "project_number": "836756836166",
+    "project_id": "fir-flutter-app-cd48c",
+    "storage_bucket": "fir-flutter-app-cd48c.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:477166890936:android:33d6171e676eb11ff1a94d",
+        "mobilesdk_app_id": "1:836756836166:android:bd1556dac84f40984b9f47",
         "android_client_info": {
           "package_name": "com.example.aplikasikoshub"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyCUGP_t7uQG80-JnYQKjIulKpGIZwy7i9A"
+          "current_key": "AIzaSyA6GIJey7UYZUJB4uR5SRS2_nIMccdOwsA"
         }
       ],
       "services": {
