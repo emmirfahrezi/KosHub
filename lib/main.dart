@@ -9,8 +9,52 @@ import 'firebase_options.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  runApp(const KosHubApp());
+  runApp(const AppBootstrap());
+}
+
+class AppBootstrap extends StatefulWidget {
+  const AppBootstrap({super.key});
+
+  @override
+  State<AppBootstrap> createState() => _AppBootstrapState();
+}
+
+class _AppBootstrapState extends State<AppBootstrap> {
+  late final Future<FirebaseApp> _initialization;
+
+  @override
+  void initState() {
+    super.initState();
+    _initialization = Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<FirebaseApp>(
+      future: _initialization,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return MaterialApp(
+            debugShowCheckedModeBanner: false,
+            home: _LoadingScreen(
+              label: 'Firebase gagal dimuat. Coba periksa koneksi atau config.',
+            ),
+          );
+        }
+
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const MaterialApp(
+            debugShowCheckedModeBanner: false,
+            home: _LoadingScreen(label: 'Menyiapkan aplikasi...'),
+          );
+        }
+
+        return const KosHubApp();
+      },
+    );
+  }
 }
 
 class KosHubApp extends StatelessWidget {
@@ -768,18 +812,36 @@ class KosDetailPage extends StatelessWidget {
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: () async {
-                    final chatId = await FirestoreService.instance
-                        .createOrGetChat(kos);
-                    if (!context.mounted) {
-                      return;
+                    try {
+                      final chatId = await FirestoreService.instance
+                          .createOrGetChat(kos);
+                      if (!context.mounted) {
+                        return;
+                      }
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                          builder: (_) =>
+                              ChatDetailPage(kos: kos, chatId: chatId),
+                        ),
+                      );
+                    } on FirebaseException catch (error) {
+                      if (!context.mounted) {
+                        return;
+                      }
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(_firebaseMessage(error))),
+                      );
+                    } catch (_) {
+                      if (!context.mounted) {
+                        return;
+                      }
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Chat gagal dibuat. Coba lagi.'),
+                        ),
+                      );
                     }
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute<void>(
-                        builder: (_) =>
-                            ChatDetailPage(kos: kos, chatId: chatId),
-                      ),
-                    );
                   },
                   icon: const Icon(Icons.chat_rounded),
                   label: const Text('Chat Pemilik'),
@@ -1131,6 +1193,18 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
     try {
       await FirestoreService.instance.sendMessage(widget.chatId, text);
       _controller.clear();
+    } on FirebaseException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(_firebaseMessage(error))));
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Pesan gagal dikirim. Coba lagi.')),
+        );
+      }
     } finally {
       if (mounted) {
         setState(() => _sending = false);
@@ -1419,6 +1493,253 @@ class BookingHistoryPage extends StatelessWidget {
   }
 }
 
+class OwnerRegistrationPage extends StatefulWidget {
+  const OwnerRegistrationPage({super.key});
+
+  @override
+  State<OwnerRegistrationPage> createState() => _OwnerRegistrationPageState();
+}
+
+class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
+  final _ownerNameController = TextEditingController();
+  final _kosNameController = TextEditingController();
+  final _areaController = TextEditingController();
+  final _addressController = TextEditingController();
+  final _descriptionController = TextEditingController();
+  final _priceController = TextEditingController();
+  final _roomController = TextEditingController(text: '1');
+  final _facilityController = TextEditingController();
+  final _photoController = TextEditingController();
+
+  String _selectedCategory = 'Campur';
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final user = FirebaseAuth.instance.currentUser;
+    _ownerNameController.text = user?.displayName ?? '';
+    _photoController.text = _sampleKosMap1['foto_urls'][0] as String;
+  }
+
+  @override
+  void dispose() {
+    _ownerNameController.dispose();
+    _kosNameController.dispose();
+    _areaController.dispose();
+    _addressController.dispose();
+    _descriptionController.dispose();
+    _priceController.dispose();
+    _roomController.dispose();
+    _facilityController.dispose();
+    _photoController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Daftar Pemilik Kos'),
+        backgroundColor: Colors.white,
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
+        children: [
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Lengkapi data kos pertamamu',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'Setelah dikirim, akunmu akan berubah menjadi pemilik dan listing kos langsung tampil di halaman utama.',
+                  style: TextStyle(color: Color(0xFF5D6B6B), height: 1.45),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          _InputField(
+            controller: _ownerNameController,
+            label: 'Nama pemilik',
+            hintText: 'Nama lengkap pemilik kos',
+          ),
+          const SizedBox(height: 16),
+          _InputField(
+            controller: _kosNameController,
+            label: 'Nama kos',
+            hintText: 'Contoh: Kos Melati Harmoni',
+          ),
+          const SizedBox(height: 16),
+          _InputField(
+            controller: _areaController,
+            label: 'Area',
+            hintText: 'Contoh: Jakarta Selatan',
+          ),
+          const SizedBox(height: 16),
+          _InputField(
+            controller: _addressController,
+            label: 'Alamat lengkap',
+            hintText: 'Masukkan alamat kos',
+            maxLines: 2,
+          ),
+          const SizedBox(height: 16),
+          _InputField(
+            controller: _descriptionController,
+            label: 'Deskripsi kos',
+            hintText: 'Jelaskan fasilitas dan keunggulan kos',
+            maxLines: 4,
+          ),
+          const SizedBox(height: 16),
+          _InputField(
+            controller: _priceController,
+            label: 'Harga per bulan',
+            hintText: 'Contoh: 1500000',
+            keyboardType: TextInputType.number,
+          ),
+          const SizedBox(height: 16),
+          _InputField(
+            controller: _roomController,
+            label: 'Jumlah kamar tersedia',
+            hintText: 'Contoh: 3',
+            keyboardType: TextInputType.number,
+          ),
+          const SizedBox(height: 16),
+          _SelectCard(
+            label: 'Kategori kos',
+            value: _selectedCategory,
+            items: const ['Campur', 'Putra', 'Putri', 'Eksklusif'],
+            onChanged: (value) => setState(() => _selectedCategory = value),
+          ),
+          const SizedBox(height: 16),
+          _InputField(
+            controller: _facilityController,
+            label: 'Fasilitas',
+            hintText: 'Pisahkan dengan koma, contoh: WiFi, AC, CCTV',
+            maxLines: 2,
+          ),
+          const SizedBox(height: 16),
+          _InputField(
+            controller: _photoController,
+            label: 'URL foto kos',
+            hintText: 'Tempel link foto utama kos',
+            keyboardType: TextInputType.url,
+          ),
+        ],
+      ),
+      bottomSheet: SafeArea(
+        minimum: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        child: FilledButton(
+          onPressed: _saving ? null : _submit,
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFF006A6A),
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+          ),
+          child: _saving
+              ? const SizedBox(
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : const Text('Kirim Pendaftaran'),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _submit() async {
+    final ownerName = _ownerNameController.text.trim();
+    final kosName = _kosNameController.text.trim();
+    final area = _areaController.text.trim();
+    final address = _addressController.text.trim();
+    final description = _descriptionController.text.trim();
+    final monthlyPrice = int.tryParse(_priceController.text.trim());
+    final availableRooms = int.tryParse(_roomController.text.trim());
+    final photoUrl = _photoController.text.trim();
+    final facilities = _facilityController.text
+        .split(',')
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toList();
+
+    if (ownerName.isEmpty ||
+        kosName.isEmpty ||
+        area.isEmpty ||
+        address.isEmpty ||
+        description.isEmpty ||
+        monthlyPrice == null ||
+        availableRooms == null ||
+        photoUrl.isEmpty) {
+      _showMessage('Semua data wajib diisi dengan benar.');
+      return;
+    }
+
+    if (facilities.isEmpty) {
+      _showMessage('Isi minimal satu fasilitas kos.');
+      return;
+    }
+
+    setState(() => _saving = true);
+    try {
+      final user = FirebaseAuth.instance.currentUser!;
+      await FirestoreService.instance.registerOwnerKos(
+        user: user,
+        ownerName: ownerName,
+        kosName: kosName,
+        area: area,
+        address: address,
+        description: description,
+        monthlyPrice: monthlyPrice,
+        availableRooms: availableRooms,
+        category: _selectedCategory,
+        facilities: facilities,
+        photoUrl: photoUrl,
+      );
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Pendaftaran pemilik berhasil. Listing kos kamu sudah aktif.',
+          ),
+        ),
+      );
+      Navigator.pop(context);
+    } on FirebaseException catch (error) {
+      _showMessage(_firebaseMessage(error));
+    } catch (_) {
+      _showMessage('Pendaftaran pemilik gagal diproses. Coba lagi.');
+    } finally {
+      if (mounted) {
+        setState(() => _saving = false);
+      }
+    }
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+}
+
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
 
@@ -1435,6 +1756,7 @@ class ProfilePage extends StatelessWidget {
         stream: FirestoreService.instance.userProfileStream(user.uid),
         builder: (context, snapshot) {
           final profile = snapshot.data;
+          final isOwner = profile?.role == 'pemilik';
           return ListView(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
             children: [
@@ -1459,6 +1781,32 @@ class ProfilePage extends StatelessWidget {
                 title: 'Chat Aktif',
                 subtitle: 'Semua percakapan realtime tersimpan di Firestore',
               ),
+              const SizedBox(height: 12),
+              if (isOwner)
+                const _ProfileMenuTile(
+                  icon: Icons.storefront_rounded,
+                  title: 'Akun Pemilik Aktif',
+                  subtitle:
+                      'Kamu sudah terdaftar sebagai pemilik kos dan bisa mulai menambahkan listing.',
+                )
+              else
+                FilledButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => const OwnerRegistrationPage(),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.store_mall_directory_rounded),
+                  label: const Text('Daftar Menjadi Pemilik Kos'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF006A6A),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                ),
               Container(
                 margin: const EdgeInsets.only(top: 12),
                 child: FilledButton.icon(
@@ -1501,14 +1849,72 @@ class FirestoreService {
     User user, {
     required String fallbackName,
   }) async {
-    await _users.doc(user.uid).set({
+    final userRef = _users.doc(user.uid);
+    final existingSnapshot = await userRef.get();
+    final existingData = existingSnapshot.data();
+
+    await userRef.set({
       'name': user.displayName ?? fallbackName,
       'email': user.email,
-      'role': 'penyewa',
+      'role': existingData?['role'] as String? ?? 'penyewa',
       'is_active': true,
       'photo_url': user.photoURL,
-      'created_at': FieldValue.serverTimestamp(),
+      'created_at':
+          existingData == null
+              ? FieldValue.serverTimestamp()
+              : existingData['created_at'],
     }, SetOptions(merge: true));
+  }
+
+  Future<void> registerOwnerKos({
+    required User user,
+    required String ownerName,
+    required String kosName,
+    required String area,
+    required String address,
+    required String description,
+    required int monthlyPrice,
+    required int availableRooms,
+    required String category,
+    required List<String> facilities,
+    required String photoUrl,
+  }) async {
+    await user.updateDisplayName(ownerName);
+    final batch = _db.batch();
+    final userRef = _users.doc(user.uid);
+    final kosRef = _kos.doc();
+
+    batch.set(userRef, {
+      'name': ownerName,
+      'email': user.email,
+      'role': 'pemilik',
+      'is_active': true,
+      'photo_url': user.photoURL ?? photoUrl,
+      'owner_status': 'Online',
+      'updated_at': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    batch.set(kosRef, {
+      'owner_id': user.uid,
+      'owner_name': ownerName,
+      'owner_status': 'Online',
+      'owner_photo': user.photoURL ?? photoUrl,
+      'nama_kos': kosName,
+      'area': area,
+      'alamat': address,
+      'deskripsi': description,
+      'harga_mulai': monthlyPrice,
+      'fasilitas': facilities,
+      'gender': category,
+      'foto_urls': [photoUrl],
+      'rating': 0,
+      'total_review': 0,
+      'available_rooms': availableRooms,
+      'status': 'active',
+      'created_at': FieldValue.serverTimestamp(),
+    });
+
+    await batch.commit();
   }
 
   Stream<AppUserData?> userProfileStream(String uid) {
@@ -1537,26 +1943,26 @@ class FirestoreService {
     final ownerRina = _users.doc('demo-owner-rina');
     final ownerDimas = _users.doc('demo-owner-dimas');
 
-    await ownerRina.set({
-      'name': 'Bu Rina',
-      'email': 'rina-owner@koshub.id',
-      'role': 'pemilik',
-      'is_active': true,
-      'photo_url':
-          'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=300&q=80',
-    }, SetOptions(merge: true));
-
-    await ownerDimas.set({
-      'name': 'Pak Dimas',
-      'email': 'dimas-owner@koshub.id',
-      'role': 'pemilik',
-      'is_active': true,
-      'photo_url':
-          'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=300&q=80',
-    }, SetOptions(merge: true));
-
-    await _kos.doc('kos-1').set(_sampleKosMap1);
-    await _kos.doc('kos-2').set(_sampleKosMap2);
+    await Future.wait([
+      ownerRina.set({
+        'name': 'Bu Rina',
+        'email': 'rina-owner@koshub.id',
+        'role': 'pemilik',
+        'is_active': true,
+        'photo_url':
+            'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=300&q=80',
+      }, SetOptions(merge: true)),
+      ownerDimas.set({
+        'name': 'Pak Dimas',
+        'email': 'dimas-owner@koshub.id',
+        'role': 'pemilik',
+        'is_active': true,
+        'photo_url':
+            'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=300&q=80',
+      }, SetOptions(merge: true)),
+      _kos.doc('kos-1').set(_sampleKosMap1),
+      _kos.doc('kos-2').set(_sampleKosMap2),
+    ]);
   }
 
   Future<String> createOrGetChat(KosData kos) async {
@@ -1578,6 +1984,7 @@ class FirestoreService {
       'owner_name': kos.ownerName,
       'owner_photo': kos.ownerPhoto,
       'owner_id': kos.ownerId,
+      'kos_snapshot': kos.toMap(),
       'penyewa_id': user.uid,
       'participant_ids': [user.uid, kos.ownerId],
       'last_message': 'Halo, saya tertarik dengan kos ini.',
@@ -1598,24 +2005,26 @@ class FirestoreService {
         .where('participant_ids', arrayContains: userId)
         .snapshots()
         .asyncMap((snapshot) async {
-          final items = <ChatPreviewData>[];
-          for (final doc in snapshot.docs) {
-            final data = doc.data();
-            final kosId = data['kos_id'] as String? ?? '';
-            final kosDoc = await _kos.doc(kosId).get();
-            if (!kosDoc.exists || kosDoc.data() == null) {
-              continue;
-            }
-            items.add(
-              ChatPreviewData.fromMap(
+          final items = await Future.wait(
+            snapshot.docs.map((doc) async {
+              final data = doc.data();
+              final kos = await _resolveKosData(
+                kosId: data['kos_id'] as String? ?? '',
+                fallbackMap: _asStringMap(data['kos_snapshot']),
+              );
+              if (kos == null) {
+                return null;
+              }
+              return ChatPreviewData.fromMap(
                 id: doc.id,
                 data: data,
-                kos: KosData.fromMap(kosDoc.id, kosDoc.data()!),
-              ),
-            );
-          }
-          items.sort((a, b) => b.sortKey.compareTo(a.sortKey));
-          return items;
+                kos: kos,
+              );
+            }),
+          );
+          final resolved = items.whereType<ChatPreviewData>().toList();
+          resolved.sort((a, b) => b.sortKey.compareTo(a.sortKey));
+          return resolved;
         });
   }
 
@@ -1649,20 +2058,22 @@ class FirestoreService {
     return _bookings.where('user_id', isEqualTo: userId).snapshots().asyncMap((
       snapshot,
     ) async {
-      final items = <BookingData>[];
-      for (final doc in snapshot.docs) {
-        final data = doc.data();
-        final kosId = data['kos_id'] as String? ?? '';
-        final kosDoc = await _kos.doc(kosId).get();
-        if (!kosDoc.exists || kosDoc.data() == null) {
-          continue;
-        }
-        items.add(
-          BookingData.fromMap(data, KosData.fromMap(kosDoc.id, kosDoc.data()!)),
-        );
-      }
-      items.sort((a, b) => b.sortKey.compareTo(a.sortKey));
-      return items;
+      final items = await Future.wait(
+        snapshot.docs.map((doc) async {
+          final data = doc.data();
+          final kos = await _resolveKosData(
+            kosId: data['kos_id'] as String? ?? '',
+            fallbackMap: _asStringMap(data['kos_snapshot']),
+          );
+          if (kos == null) {
+            return null;
+          }
+          return BookingData.fromMap(data, kos);
+        }),
+      );
+      final resolved = items.whereType<BookingData>().toList();
+      resolved.sort((a, b) => b.sortKey.compareTo(a.sortKey));
+      return resolved;
     });
   }
 
@@ -1677,6 +2088,7 @@ class FirestoreService {
       'user_id': user.uid,
       'owner_id': kos.ownerId,
       'kos_id': kos.id,
+      'kos_snapshot': kos.toMap(),
       'room_label': 'Kamar Demo',
       'start_date_label': startDateLabel,
       'duration_label': durationLabel,
@@ -1685,6 +2097,34 @@ class FirestoreService {
       'total_price': _totalPrice(kos.price, durationLabel),
       'created_at': FieldValue.serverTimestamp(),
     });
+  }
+
+  Future<KosData?> _resolveKosData({
+    required String kosId,
+    required Map<String, dynamic>? fallbackMap,
+  }) async {
+    if (fallbackMap != null) {
+      return KosData.fromMap(kosId, fallbackMap);
+    }
+
+    final kosDoc = await _kos.doc(kosId).get();
+    if (!kosDoc.exists || kosDoc.data() == null) {
+      return null;
+    }
+
+    return KosData.fromMap(kosDoc.id, kosDoc.data()!);
+  }
+
+  Map<String, dynamic>? _asStringMap(Object? value) {
+    if (value is Map<String, dynamic>) {
+      return value;
+    }
+    if (value is Map) {
+      return value.map(
+        (key, entryValue) => MapEntry(key.toString(), entryValue),
+      );
+    }
+    return null;
   }
 }
 
@@ -1748,6 +2188,27 @@ class KosData {
       ownerStatus: map['owner_status'] as String? ?? 'Online',
       ownerPhoto: map['owner_photo'] as String? ?? '',
     );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'owner_id': ownerId,
+      'owner_name': ownerName,
+      'owner_status': ownerStatus,
+      'owner_photo': ownerPhoto,
+      'nama_kos': name,
+      'area': area,
+      'alamat': address,
+      'deskripsi': description,
+      'harga_mulai': price,
+      'fasilitas': facilities,
+      'gender': category,
+      'foto_urls': gallery,
+      'rating': rating,
+      'total_review': reviewCount,
+      'available_rooms': availableRooms,
+      'status': 'active',
+    };
   }
 }
 
@@ -2363,6 +2824,7 @@ class _InputField extends StatelessWidget {
     required this.hintText,
     this.obscureText = false,
     this.keyboardType,
+    this.maxLines = 1,
   });
 
   final TextEditingController controller;
@@ -2370,6 +2832,7 @@ class _InputField extends StatelessWidget {
   final String hintText;
   final bool obscureText;
   final TextInputType? keyboardType;
+  final int maxLines;
 
   @override
   Widget build(BuildContext context) {
@@ -2388,6 +2851,7 @@ class _InputField extends StatelessWidget {
           controller: controller,
           obscureText: obscureText,
           keyboardType: keyboardType,
+          maxLines: obscureText ? 1 : maxLines,
           decoration: InputDecoration(
             hintText: hintText,
             filled: true,
@@ -2826,6 +3290,21 @@ String _currency(int amount) {
     }
   }
   return 'Rp $buffer';
+}
+
+String _firebaseMessage(FirebaseException error) {
+  switch (error.code) {
+    case 'permission-denied':
+      return 'Akses Firestore ditolak. Deploy/update rules Firestore dulu.';
+    case 'unavailable':
+      return 'Firestore belum bisa dihubungi. Periksa koneksi internet.';
+    case 'not-found':
+      return 'Data terkait tidak ditemukan. Muat ulang lalu coba lagi.';
+    case 'unauthenticated':
+      return 'Sesi login tidak valid. Silakan masuk ulang.';
+    default:
+      return error.message ?? 'Firebase gagal memproses permintaan.';
+  }
 }
 
 String _formatTime(DateTime dateTime) {
