@@ -1,4 +1,4 @@
-package com.example.aplikasikoshub
+package com.penacode.koshub
 
 import io.flutter.embedding.android.FlutterActivity
 
