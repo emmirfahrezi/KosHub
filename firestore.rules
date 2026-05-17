@@ -10,17 +10,28 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == userId;
     }
 
+    function isAdmin() {
+      return signedIn()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in [
+          'admin',
+          'super_admin',
+          'moderator',
+          'finance_admin',
+          'customer_service'
+        ];
+    }
+
     match /users/{userId} {
-      allow read: if ownsUserDoc(userId);
-      allow create, update: if ownsUserDoc(userId);
+      allow read: if ownsUserDoc(userId) || isAdmin();
+      allow create, update: if ownsUserDoc(userId) || isAdmin();
     }
 
     match /kos/{kosId} {
       allow read: if signedIn();
       allow create: if signedIn()
         && request.resource.data.owner_id == request.auth.uid;
-      allow update, delete: if signedIn()
-        && resource.data.owner_id == request.auth.uid;
+      allow update, delete: if isAdmin()
+        || (signedIn() && resource.data.owner_id == request.auth.uid);
     }
 
     match /chats/{chatId} {
@@ -42,13 +53,17 @@ service cloud.firestore {
     }
 
     match /bookings/{bookingId} {
-      allow read: if signedIn()
+      allow read: if isAdmin()
+        || (signedIn()
         && (resource.data.user_id == request.auth.uid
-          || resource.data.owner_id == request.auth.uid);
+          || resource.data.owner_id == request.auth.uid));
       allow create: if signedIn()
         && request.resource.data.user_id == request.auth.uid;
-      allow update: if signedIn()
-        && resource.data.owner_id == request.auth.uid;
+      allow update: if isAdmin()
+        || (signedIn()
+          && resource.data.user_id == request.auth.uid
+          && resource.data.status == 'Menunggu Konfirmasi')
+        || (signedIn() && resource.data.owner_id == request.auth.uid);
     }
   }
 }
