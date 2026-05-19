@@ -297,17 +297,15 @@ class FirestoreService {
 
   Future<String> createOrGetChat(KosData kos) async {
     final user = FirebaseAuth.instance.currentUser!;
-    final existing = await _chats
-        .where('kos_id', isEqualTo: kos.id)
-        .where('penyewa_id', isEqualTo: user.uid)
-        .limit(1)
-        .get();
-
-    if (existing.docs.isNotEmpty) {
-      return existing.docs.first.id;
-    }
-
-    final chatRef = _chats.doc();
+    final profileSnapshot = await _users.doc(user.uid).get();
+    final profile = profileSnapshot.data() ?? const <String, dynamic>{};
+    final penyewaName =
+        profile['name'] as String? ??
+        user.displayName ??
+        user.email?.split('@').first ??
+        'Penyewa';
+    final penyewaPhoto = profile['photo_url'] as String? ?? user.photoURL ?? '';
+    final chatRef = _chatDoc(kosId: kos.id, penyewaId: user.uid);
     await chatRef.set({
       'kos_id': kos.id,
       'kos_name': kos.name,
@@ -316,16 +314,11 @@ class FirestoreService {
       'owner_id': kos.ownerId,
       'kos_snapshot': kos.toMap(),
       'penyewa_id': user.uid,
+      'penyewa_name': penyewaName,
+      'penyewa_photo': penyewaPhoto,
       'participant_ids': [user.uid, kos.ownerId],
-      'last_message': 'Halo, saya tertarik dengan kos ini.',
-      'last_message_time': FieldValue.serverTimestamp(),
-    });
-
-    await chatRef.collection('messages').add({
-      'sender_id': user.uid,
-      'text': 'Halo, saya tertarik dengan kos ini.',
-      'timestamp': FieldValue.serverTimestamp(),
-    });
+      'created_at': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
 
     return chatRef.id;
   }
@@ -354,6 +347,23 @@ class FirestoreService {
         });
   }
 
+  Stream<ChatPreviewData?> chatPreviewStream({
+    required String chatId,
+    required KosData fallbackKos,
+  }) {
+    return _chats.doc(chatId).snapshots().map((snapshot) {
+      final data = snapshot.data();
+      if (data == null) {
+        return null;
+      }
+      return ChatPreviewData.fromMap(
+        id: snapshot.id,
+        data: data,
+        kos: fallbackKos,
+      );
+    });
+  }
+
   Stream<List<ChatMessageData>> messagesStream(String chatId) {
     return _chats
         .doc(chatId)
@@ -367,17 +377,45 @@ class FirestoreService {
         });
   }
 
-  Future<void> sendMessage(String chatId, String text) async {
+  Future<void> sendMessage({
+    required String chatId,
+    required String text,
+    required KosData kos,
+  }) async {
     final user = FirebaseAuth.instance.currentUser!;
+    final profileSnapshot = await _users.doc(user.uid).get();
+    final profile = profileSnapshot.data() ?? const <String, dynamic>{};
+    final senderName =
+        profile['name'] as String? ??
+        user.displayName ??
+        user.email?.split('@').first ??
+        'Pengguna';
+    final senderPhoto = profile['photo_url'] as String? ?? user.photoURL ?? '';
+    final isPenyewa = user.uid != kos.ownerId;
+    final chatMetadata = <String, dynamic>{
+      'last_message': text,
+      'last_message_time': FieldValue.serverTimestamp(),
+      'last_sender_id': user.uid,
+      'last_sender_name': senderName,
+      'last_sender_photo': senderPhoto,
+    };
+
+    if (isPenyewa) {
+      chatMetadata.addAll({
+        'penyewa_id': user.uid,
+        'penyewa_name': senderName,
+        'penyewa_photo': senderPhoto,
+      });
+    }
+
     await _chats.doc(chatId).collection('messages').add({
       'sender_id': user.uid,
+      'sender_name': senderName,
+      'sender_photo': senderPhoto,
       'text': text,
       'timestamp': FieldValue.serverTimestamp(),
     });
-    await _chats.doc(chatId).set({
-      'last_message': text,
-      'last_message_time': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    await _chats.doc(chatId).set(chatMetadata, SetOptions(merge: true));
   }
 
   Stream<List<BookingData>> userBookingsStream(String userId) {
@@ -576,18 +614,7 @@ class FirestoreService {
   }
 
   Future<String> createOrGetOwnerChat(BookingData booking) async {
-    final existing = await _chats
-        .where('kos_id', isEqualTo: booking.kos.id)
-        .where('penyewa_id', isEqualTo: booking.userId)
-        .limit(1)
-        .get();
-
-    if (existing.docs.isNotEmpty) {
-      return existing.docs.first.id;
-    }
-
-    final user = FirebaseAuth.instance.currentUser!;
-    final chatRef = _chats.doc();
+    final chatRef = _chatDoc(kosId: booking.kos.id, penyewaId: booking.userId);
     await chatRef.set({
       'kos_id': booking.kos.id,
       'kos_name': booking.kos.name,
@@ -596,19 +623,20 @@ class FirestoreService {
       'owner_id': booking.kos.ownerId,
       'kos_snapshot': booking.kos.toMap(),
       'penyewa_id': booking.userId,
-      'participant_ids': [user.uid, booking.userId],
-      'last_message':
-          'Halo ${booking.userName}, booking kamu sedang kami review.',
-      'last_message_time': FieldValue.serverTimestamp(),
-    });
-
-    await chatRef.collection('messages').add({
-      'sender_id': user.uid,
-      'text': 'Halo ${booking.userName}, booking kamu sedang kami review.',
-      'timestamp': FieldValue.serverTimestamp(),
-    });
+      'penyewa_name': booking.userName,
+      'penyewa_photo': booking.userPhoto,
+      'participant_ids': [booking.kos.ownerId, booking.userId],
+      'created_at': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
 
     return chatRef.id;
+  }
+
+  DocumentReference<Map<String, dynamic>> _chatDoc({
+    required String kosId,
+    required String penyewaId,
+  }) {
+    return _chats.doc('${kosId}_$penyewaId');
   }
 
   Future<void> updateBookingStatus({

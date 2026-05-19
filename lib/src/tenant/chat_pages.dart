@@ -46,6 +46,8 @@ class ChatListPage extends StatelessWidget {
             separatorBuilder: (_, _) => const SizedBox(height: 12),
             itemBuilder: (context, index) {
               final chat = chats[index];
+              final displayName = chat.displayNameFor(user.uid);
+              final displayPhoto = chat.displayPhotoFor(user.uid);
               return InkWell(
                 onTap: () {
                   Navigator.push(
@@ -68,7 +70,12 @@ class ChatListPage extends StatelessWidget {
                     children: [
                       CircleAvatar(
                         radius: 28,
-                        backgroundImage: NetworkImage(chat.kos.ownerPhoto),
+                        backgroundImage: displayPhoto.isNotEmpty
+                            ? NetworkImage(displayPhoto)
+                            : null,
+                        child: displayPhoto.isEmpty
+                            ? const Icon(Icons.person_rounded)
+                            : null,
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -76,7 +83,7 @@ class ChatListPage extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              chat.kos.ownerName,
+                              displayName,
                               style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w800,
@@ -145,34 +152,53 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
   @override
   Widget build(BuildContext context) {
     final currentUserId = FirebaseAuth.instance.currentUser!.uid;
+    final isOwner = currentUserId == widget.kos.ownerId;
 
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.white,
-        title: Row(
-          children: [
-            CircleAvatar(
-              radius: 18,
-              backgroundImage: NetworkImage(widget.kos.ownerPhoto),
-            ),
-            const SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+        title: StreamBuilder<ChatPreviewData?>(
+          stream: FirestoreService.instance.chatPreviewStream(
+            chatId: widget.chatId,
+            fallbackKos: widget.kos,
+          ),
+          builder: (context, snapshot) {
+            final chat = snapshot.data;
+            final displayName =
+                chat?.displayNameFor(currentUserId) ??
+                (isOwner ? 'Penyewa' : widget.kos.ownerName);
+            final displayPhoto =
+                chat?.displayPhotoFor(currentUserId) ??
+                (isOwner ? '' : widget.kos.ownerPhoto);
+
+            return Row(
               children: [
-                Text(
-                  widget.kos.ownerName,
-                  style: const TextStyle(fontSize: 16),
+                CircleAvatar(
+                  radius: 18,
+                  backgroundImage: displayPhoto.isNotEmpty
+                      ? NetworkImage(displayPhoto)
+                      : null,
+                  child: displayPhoto.isEmpty
+                      ? const Icon(Icons.person_rounded, size: 18)
+                      : null,
                 ),
-                Text(
-                  widget.kos.ownerStatus,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF5D6B6B),
-                  ),
+                const SizedBox(width: 10),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(displayName, style: const TextStyle(fontSize: 16)),
+                    Text(
+                      isOwner ? 'Penyewa' : widget.kos.ownerStatus,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF5D6B6B),
+                      ),
+                    ),
+                  ],
                 ),
               ],
-            ),
-          ],
+            );
+          },
         ),
       ),
       body: Column(
@@ -354,7 +380,11 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
 
     setState(() => _sending = true);
     try {
-      await FirestoreService.instance.sendMessage(widget.chatId, text);
+      await FirestoreService.instance.sendMessage(
+        chatId: widget.chatId,
+        text: text,
+        kos: widget.kos,
+      );
       _controller.clear();
     } on FirebaseException catch (error) {
       if (mounted) {

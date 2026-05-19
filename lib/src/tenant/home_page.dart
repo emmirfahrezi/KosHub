@@ -16,6 +16,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   String _searchQuery = '';
+  String? _selectedCategory;
 
   @override
   Widget build(BuildContext context) {
@@ -63,13 +64,15 @@ class _HomePageState extends State<HomePage> {
 
           final items = snapshot.data ?? const <KosData>[];
           final filtered = items.where((kos) {
-            if (_searchQuery.isEmpty) {
-              return true;
-            }
             final query = _searchQuery.toLowerCase();
-            return kos.name.toLowerCase().contains(query) ||
+            final matchesSearch =
+                query.isEmpty ||
+                kos.name.toLowerCase().contains(query) ||
                 kos.area.toLowerCase().contains(query) ||
                 kos.address.toLowerCase().contains(query);
+            final matchesCategory =
+                _selectedCategory == null || kos.category == _selectedCategory;
+            return matchesSearch && matchesCategory;
           }).toList();
 
           return SafeArea(
@@ -84,10 +87,21 @@ class _HomePageState extends State<HomePage> {
                     onSubmitted: (_) {},
                   ),
                   const SizedBox(height: 24),
-                  const _CategorySection(),
+                  _CategorySection(
+                    selectedCategory: _selectedCategory,
+                    onSelected: (category) {
+                      setState(() {
+                        _selectedCategory = _selectedCategory == category
+                            ? null
+                            : category;
+                      });
+                    },
+                  ),
                   const SizedBox(height: 28),
                   _SectionHeader(
-                    title: 'Kos Tersedia',
+                    title: _selectedCategory == null
+                        ? 'Kos Tersedia'
+                        : 'Kos $_selectedCategory',
                     actionLabel: 'Seed Data Demo',
                     onTap: _seedDemoData,
                   ),
@@ -99,7 +113,7 @@ class _HomePageState extends State<HomePage> {
                           : 'Tidak ada hasil yang cocok',
                       subtitle: items.isEmpty
                           ? 'Tekan "Seed Data Demo" untuk membuat contoh data kos, pemilik, dan chat awal.'
-                          : 'Coba ubah kata kunci pencarianmu.',
+                          : 'Coba ubah kata kunci atau kategori pencarianmu.',
                       buttonLabel: items.isEmpty ? 'Buat Data Demo' : null,
                       onPressed: items.isEmpty ? _seedDemoData : null,
                     )

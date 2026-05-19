@@ -182,50 +182,89 @@ class _HomeHeroState extends State<_HomeHero> {
 }
 
 class _CategorySection extends StatelessWidget {
-  const _CategorySection();
+  const _CategorySection({
+    required this.selectedCategory,
+    required this.onSelected,
+  });
+
+  final String? selectedCategory;
+  final ValueChanged<String> onSelected;
 
   @override
   Widget build(BuildContext context) {
-    return const Row(
+    const categories = [
+      (icon: Icons.female_rounded, label: 'Putri'),
+      (icon: Icons.male_rounded, label: 'Putra'),
+      (icon: Icons.groups_rounded, label: 'Campur'),
+      (icon: Icons.star_rounded, label: 'Eksklusif'),
+    ];
+
+    return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        _CategoryItem(icon: Icons.female_rounded, label: 'Putri'),
-        _CategoryItem(icon: Icons.male_rounded, label: 'Putra'),
-        _CategoryItem(icon: Icons.groups_rounded, label: 'Campur'),
-        _CategoryItem(icon: Icons.star_rounded, label: 'Eksklusif'),
-      ],
+      children: categories.map((category) {
+        return _CategoryItem(
+          icon: category.icon,
+          label: category.label,
+          selected: selectedCategory == category.label,
+          onTap: () => onSelected(category.label),
+        );
+      }).toList(),
     );
   }
 }
 
 class _CategoryItem extends StatelessWidget {
-  const _CategoryItem({required this.icon, required this.label});
+  const _CategoryItem({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
 
   final IconData icon;
   final String label;
+  final bool selected;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Container(
-          width: 62,
-          height: 62,
-          decoration: BoxDecoration(
-            color: const Color(0xFFE8EDEE),
-            borderRadius: BorderRadius.circular(20),
+    final foreground = selected ? Colors.white : const Color(0xFF006A6A);
+    final background = selected
+        ? const Color(0xFF006A6A)
+        : const Color(0xFFE8EDEE);
+    final textColor = selected
+        ? const Color(0xFF006A6A)
+        : const Color(0xFF5D6B6B);
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Column(
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            width: 62,
+            height: 62,
+            decoration: BoxDecoration(
+              color: background,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: selected ? const Color(0xFF006A6A) : Colors.transparent,
+                width: 2,
+              ),
+            ),
+            child: Icon(icon, color: foreground, size: 30),
           ),
-          child: Icon(icon, color: const Color(0xFF006A6A), size: 30),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          label,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: const Color(0xFF5D6B6B),
-            fontWeight: FontWeight.w700,
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: textColor,
+              fontWeight: FontWeight.w700,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

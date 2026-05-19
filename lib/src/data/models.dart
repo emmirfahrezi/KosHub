@@ -331,6 +331,12 @@ class ChatPreviewData {
   const ChatPreviewData({
     required this.id,
     required this.kos,
+    required this.ownerId,
+    required this.ownerName,
+    required this.ownerPhoto,
+    required this.penyewaId,
+    required this.penyewaName,
+    required this.penyewaPhoto,
     required this.lastMessage,
     required this.timeLabel,
     required this.sortKey,
@@ -338,9 +344,23 @@ class ChatPreviewData {
 
   final String id;
   final KosData kos;
+  final String ownerId;
+  final String ownerName;
+  final String ownerPhoto;
+  final String penyewaId;
+  final String penyewaName;
+  final String penyewaPhoto;
   final String lastMessage;
   final String timeLabel;
   final DateTime sortKey;
+
+  String displayNameFor(String currentUserId) {
+    return currentUserId == ownerId ? penyewaName : ownerName;
+  }
+
+  String displayPhotoFor(String currentUserId) {
+    return currentUserId == ownerId ? penyewaPhoto : ownerPhoto;
+  }
 
   factory ChatPreviewData.fromMap({
     required String id,
@@ -353,6 +373,12 @@ class ChatPreviewData {
     return ChatPreviewData(
       id: id,
       kos: kos,
+      ownerId: data['owner_id'] as String? ?? kos.ownerId,
+      ownerName: data['owner_name'] as String? ?? kos.ownerName,
+      ownerPhoto: data['owner_photo'] as String? ?? kos.ownerPhoto,
+      penyewaId: data['penyewa_id'] as String? ?? '',
+      penyewaName: data['penyewa_name'] as String? ?? 'Penyewa',
+      penyewaPhoto: data['penyewa_photo'] as String? ?? '',
       lastMessage: data['last_message'] as String? ?? '',
       timeLabel: _formatTime(timestamp),
       sortKey: timestamp,
@@ -364,12 +390,14 @@ class ChatMessageData {
   const ChatMessageData({
     required this.id,
     required this.senderId,
+    required this.senderName,
     required this.text,
     required this.timeLabel,
   });
 
   final String id;
   final String senderId;
+  final String senderName;
   final String text;
   final String timeLabel;
 
@@ -379,6 +407,7 @@ class ChatMessageData {
     return ChatMessageData(
       id: id,
       senderId: map['sender_id'] as String? ?? '',
+      senderName: map['sender_name'] as String? ?? '',
       text: map['text'] as String? ?? '',
       timeLabel: _formatTime(timestamp),
     );
