@@ -20,6 +20,7 @@ class KosData {
     required this.ownerName,
     required this.ownerStatus,
     required this.ownerPhoto,
+    required this.listingStatus,
   });
 
   final String id;
@@ -40,6 +41,24 @@ class KosData {
   final String ownerName;
   final String ownerStatus;
   final String ownerPhoto;
+  final String listingStatus;
+
+  bool get isPublished => listingStatus == 'active';
+
+  String get listingStatusLabel {
+    switch (listingStatus) {
+      case 'pending_review':
+        return 'Menunggu Review';
+      case 'needs_revision':
+        return 'Perlu Revisi';
+      case 'hidden':
+        return 'Disembunyikan';
+      case 'suspended':
+        return 'Suspended';
+      default:
+        return 'Aktif';
+    }
+  }
 
   factory KosData.fromMap(String id, Map<String, dynamic> map) {
     return KosData(
@@ -68,6 +87,7 @@ class KosData {
       ownerName: map['owner_name'] as String? ?? 'Pemilik Kos',
       ownerStatus: map['owner_status'] as String? ?? 'Online',
       ownerPhoto: map['owner_photo'] as String? ?? '',
+      listingStatus: map['status'] as String? ?? 'active',
     );
   }
 
@@ -90,7 +110,7 @@ class KosData {
       'total_review': reviewCount,
       'total_rooms': totalRooms,
       'available_rooms': availableRooms,
-      'status': 'active',
+      'status': listingStatus,
     };
   }
 }
@@ -110,6 +130,16 @@ class AppUserData {
     required this.bankAccountLabel,
     required this.loginActivity,
     required this.createdAt,
+    required this.isActive,
+    required this.requestedRole,
+    required this.activationPaymentStatus,
+    required this.activationPaymentProofUrl,
+    required this.activationPaymentMethod,
+    required this.ownerActivationFee,
+    required this.ownerActivationDiscount,
+    required this.ownerVoucherCode,
+    required this.ownerApplicationSubmittedAt,
+    required this.adminNotes,
   });
 
   final String id;
@@ -125,10 +155,32 @@ class AppUserData {
   final String bankAccountLabel;
   final String loginActivity;
   final DateTime createdAt;
+  final bool isActive;
+  final String requestedRole;
+  final String activationPaymentStatus;
+  final String activationPaymentProofUrl;
+  final String activationPaymentMethod;
+  final int ownerActivationFee;
+  final int ownerActivationDiscount;
+  final String ownerVoucherCode;
+  final DateTime? ownerApplicationSubmittedAt;
+  final String adminNotes;
 
   bool get isAdmin => _isAdminRole(role);
+  bool get hasOwnerRequest => role == 'pemilik' || requestedRole == 'pemilik';
+  bool get canAccessOwnerShell =>
+      role == 'pemilik' &&
+      isActive &&
+      accountStatus == 'Aktif' &&
+      verificationStatus == 'Terverifikasi';
+  bool get hasActivationProof => activationPaymentProofUrl.trim().isNotEmpty;
+  int get ownerNetActivationFee =>
+      math.max(0, ownerActivationFee - ownerActivationDiscount);
 
   String get roleLabel {
+    if (role != 'pemilik' && requestedRole == 'pemilik') {
+      return 'Calon Pemilik Kos';
+    }
     switch (role) {
       case 'super_admin':
         return 'Super Admin';
@@ -165,6 +217,23 @@ class AppUserData {
       createdAt:
           (map['created_at'] as Timestamp?)?.toDate() ??
           DateTime.fromMillisecondsSinceEpoch(0),
+      isActive: map['is_active'] as bool? ?? true,
+      requestedRole: map['requested_role'] as String? ?? '',
+      activationPaymentStatus:
+          map['activation_payment_status'] as String? ?? 'Belum Bayar',
+      activationPaymentProofUrl:
+          map['activation_payment_proof_url'] as String? ?? '',
+      activationPaymentMethod:
+          map['activation_payment_method'] as String? ?? 'Transfer Manual',
+      ownerActivationFee:
+          (map['owner_activation_fee'] as num?)?.toInt() ??
+          _ownerActivationBaseFee,
+      ownerActivationDiscount:
+          (map['owner_activation_discount'] as num?)?.toInt() ?? 0,
+      ownerVoucherCode: map['owner_voucher_code'] as String? ?? '',
+      ownerApplicationSubmittedAt:
+          (map['owner_application_submitted_at'] as Timestamp?)?.toDate(),
+      adminNotes: map['admin_notes'] as String? ?? '',
     );
   }
 }
@@ -175,30 +244,32 @@ class AdminDashboardData {
     required this.totalOwners,
     required this.totalKos,
     required this.activeRooms,
-    required this.bookingsToday,
+    required this.ownerRequestsToday,
     required this.platformRevenue,
-    required this.activeComplaints,
+    required this.pendingOwnerPayments,
+    required this.pendingOwnerVerifications,
     required this.blockedUsers,
-    required this.reportedKos,
+    required this.pendingListings,
     required this.recentActivities,
     required this.latestOwnerSummary,
-    required this.topKosSummary,
-    required this.topBookingSummary,
+    required this.topListingSummary,
+    required this.latestPaymentSummary,
   });
 
   final int totalUsers;
   final int totalOwners;
   final int totalKos;
   final int activeRooms;
-  final int bookingsToday;
+  final int ownerRequestsToday;
   final int platformRevenue;
-  final int activeComplaints;
+  final int pendingOwnerPayments;
+  final int pendingOwnerVerifications;
   final int blockedUsers;
-  final int reportedKos;
+  final int pendingListings;
   final List<AdminActivityItem> recentActivities;
   final String latestOwnerSummary;
-  final String topKosSummary;
-  final String topBookingSummary;
+  final String topListingSummary;
+  final String latestPaymentSummary;
 
   factory AdminDashboardData.empty() {
     return const AdminDashboardData(
@@ -206,15 +277,16 @@ class AdminDashboardData {
       totalOwners: 0,
       totalKos: 0,
       activeRooms: 0,
-      bookingsToday: 0,
+      ownerRequestsToday: 0,
       platformRevenue: 0,
-      activeComplaints: 0,
+      pendingOwnerPayments: 0,
+      pendingOwnerVerifications: 0,
       blockedUsers: 0,
-      reportedKos: 0,
+      pendingListings: 0,
       recentActivities: [],
       latestOwnerSummary: 'Belum ada data pemilik terbaru.',
-      topKosSummary: 'Belum ada listing aktif.',
-      topBookingSummary: 'Belum ada booking masuk.',
+      topListingSummary: 'Belum ada listing aktif.',
+      latestPaymentSummary: 'Belum ada pembayaran aktivasi owner.',
     );
   }
 
@@ -224,91 +296,117 @@ class AdminDashboardData {
     required List<BookingData> bookings,
   }) {
     final today = _dayKey(DateTime.now());
-    final owners = users.where((user) => user.role == 'pemilik').toList();
+    final owners = users
+        .where(
+          (user) =>
+              user.role == 'pemilik' &&
+              user.accountStatus == 'Aktif' &&
+              user.verificationStatus == 'Terverifikasi',
+        )
+        .toList();
+    final ownerApplicants = users
+        .where((user) => user.hasOwnerRequest)
+        .toList();
     owners.sort((a, b) => b.sortKey.compareTo(a.sortKey));
     final activeRooms = kosList.fold<int>(
       0,
       (total, kos) => total + (kos.totalRooms - kos.availableRooms),
     );
-    final bookingsToday = bookings.where((booking) {
-      return _dayKey(booking.sortKey) == today;
+    final ownerRequestsToday = ownerApplicants.where((user) {
+      final submittedAt = user.ownerApplicationSubmittedAt;
+      return submittedAt != null && _dayKey(submittedAt) == today;
     }).length;
-    final platformRevenue = bookings
-        .where((booking) => booking.paymentStatus == 'Lunas')
-        .fold<int>(
-          0,
-          (total, booking) => total + (booking.totalPrice * 0.05).round(),
-        );
-    final activeComplaints = bookings.where((booking) {
-      return booking.note.toLowerCase().contains('komplain') ||
-          booking.note.toLowerCase().contains('lapor');
-    }).length;
-    final blockedUsers = users
-        .where((user) => user.accountStatus == 'Diblokir')
+    final platformRevenue = ownerApplicants
+        .where((user) => user.activationPaymentStatus == 'Lunas')
+        .fold<int>(0, (total, user) => total + user.ownerNetActivationFee);
+    final pendingOwnerPayments = ownerApplicants
+        .where((user) => user.activationPaymentStatus == 'Menunggu Konfirmasi')
         .length;
-    final reportedKos = kosList
-        .where((kos) => kos.description.toLowerCase().contains('laporan'))
+    final pendingOwnerVerifications = ownerApplicants
+        .where((user) => user.verificationStatus == 'Menunggu Verifikasi')
+        .length;
+    final blockedUsers = users
+        .where(
+          (user) =>
+              user.accountStatus == 'Diblokir' ||
+              user.accountStatus == 'Suspended',
+        )
+        .length;
+    final pendingListings = kosList
+        .where((kos) => kos.listingStatus != 'active')
         .length;
 
     final bookingCounts = <String, int>{};
-    for (final booking in bookings) {
+    for (final booking in bookings.where(
+      (item) => item.status != 'Dibatalkan',
+    )) {
       bookingCounts.update(
         booking.kos.name,
         (value) => value + 1,
         ifAbsent: () => 1,
       );
     }
-    String topKosSummary = 'Belum ada listing aktif.';
+    String topListingSummary = 'Belum ada listing aktif.';
     if (bookingCounts.isNotEmpty) {
       final top = bookingCounts.entries.reduce(
         (a, b) => a.value >= b.value ? a : b,
       );
-      topKosSummary = '${top.key} | ${top.value} booking';
+      topListingSummary = '${top.key} | ${top.value} booking';
     }
 
-    final recentActivities = bookings.take(5).map((booking) {
+    final recentActivities = ownerApplicants.take(5).map((owner) {
       return AdminActivityItem(
-        title: '${booking.userName} booking ${booking.kos.name}',
-        subtitle: '${booking.status} | ${booking.paymentStatus}',
-        timeLabel: _formatTime(booking.sortKey),
-        icon: Icons.bolt_rounded,
+        title: '${owner.name} mengajukan akun pemilik',
+        subtitle:
+            '${owner.activationPaymentStatus} | ${owner.verificationStatus}',
+        timeLabel: _formatTime(
+          owner.ownerApplicationSubmittedAt ?? owner.createdAt,
+        ),
+        icon: Icons.badge_rounded,
       );
     }).toList();
 
     if (recentActivities.length < 5) {
       recentActivities.addAll(
-        owners
+        kosList
             .take(5 - recentActivities.length)
             .map(
-              (owner) => AdminActivityItem(
-                title: '${owner.name} masuk sebagai pemilik kos',
-                subtitle:
-                    '${owner.verificationStatus} | ${owner.accountStatus}',
-                timeLabel: _formatTime(owner.createdAt),
-                icon: Icons.verified_user_rounded,
+              (kos) => AdminActivityItem(
+                title: '${kos.name} di ${kos.area}',
+                subtitle: '${kos.ownerName} | ${kos.listingStatusLabel}',
+                timeLabel: _formatTime(DateTime.now()),
+                icon: Icons.apartment_rounded,
               ),
             ),
       );
     }
+
+    final latestPayment = ownerApplicants
+      ..sort((a, b) {
+        final aDate = a.ownerApplicationSubmittedAt ?? a.createdAt;
+        final bDate = b.ownerApplicationSubmittedAt ?? b.createdAt;
+        return bDate.compareTo(aDate);
+      });
 
     return AdminDashboardData(
       totalUsers: users.where((user) => !user.isAdmin).length,
       totalOwners: owners.length,
       totalKos: kosList.length,
       activeRooms: activeRooms,
-      bookingsToday: bookingsToday,
+      ownerRequestsToday: ownerRequestsToday,
       platformRevenue: platformRevenue,
-      activeComplaints: activeComplaints,
+      pendingOwnerPayments: pendingOwnerPayments,
+      pendingOwnerVerifications: pendingOwnerVerifications,
       blockedUsers: blockedUsers,
-      reportedKos: reportedKos,
+      pendingListings: pendingListings,
       recentActivities: recentActivities,
-      latestOwnerSummary: owners.isEmpty
+      latestOwnerSummary: ownerApplicants.isEmpty
           ? 'Belum ada owner baru.'
-          : '${owners.first.name} | ${owners.first.verificationStatus}',
-      topKosSummary: topKosSummary,
-      topBookingSummary: bookings.isEmpty
-          ? 'Belum ada booking masuk.'
-          : '${bookings.first.kos.name} | ${bookings.first.status}',
+          : '${ownerApplicants.first.name} | ${ownerApplicants.first.verificationStatus}',
+      topListingSummary: topListingSummary,
+      latestPaymentSummary: latestPayment.isEmpty
+          ? 'Belum ada pembayaran aktivasi owner.'
+          : '${latestPayment.first.name} | ${latestPayment.first.activationPaymentStatus}',
     );
   }
 }
@@ -552,6 +650,74 @@ class BookingData {
       ownerNotes: (map['owner_notes'] as List<dynamic>? ?? const [])
           .map((item) => item.toString())
           .toList(),
+    );
+  }
+}
+
+class OwnerVoucherData {
+  const OwnerVoucherData({
+    required this.id,
+    required this.code,
+    required this.title,
+    required this.description,
+    required this.discountAmount,
+    required this.isActive,
+    required this.createdAt,
+  });
+
+  final String id;
+  final String code;
+  final String title;
+  final String description;
+  final int discountAmount;
+  final bool isActive;
+  final DateTime createdAt;
+
+  factory OwnerVoucherData.fromMap(String id, Map<String, dynamic> map) {
+    return OwnerVoucherData(
+      id: id,
+      code: map['code'] as String? ?? '',
+      title: map['title'] as String? ?? 'Voucher Owner',
+      description: map['description'] as String? ?? '',
+      discountAmount: (map['discount_amount'] as num?)?.toInt() ?? 0,
+      isActive: map['is_active'] as bool? ?? true,
+      createdAt:
+          (map['created_at'] as Timestamp?)?.toDate() ??
+          DateTime.fromMillisecondsSinceEpoch(0),
+    );
+  }
+}
+
+class HomeBannerData {
+  const HomeBannerData({
+    required this.id,
+    required this.title,
+    required this.subtitle,
+    required this.imageUrl,
+    required this.placement,
+    required this.isActive,
+    required this.createdAt,
+  });
+
+  final String id;
+  final String title;
+  final String subtitle;
+  final String imageUrl;
+  final String placement;
+  final bool isActive;
+  final DateTime createdAt;
+
+  factory HomeBannerData.fromMap(String id, Map<String, dynamic> map) {
+    return HomeBannerData(
+      id: id,
+      title: map['title'] as String? ?? 'Banner KosHub',
+      subtitle: map['subtitle'] as String? ?? '',
+      imageUrl: map['image_url'] as String? ?? '',
+      placement: map['placement'] as String? ?? 'hero',
+      isActive: map['is_active'] as bool? ?? true,
+      createdAt:
+          (map['created_at'] as Timestamp?)?.toDate() ??
+          DateTime.fromMillisecondsSinceEpoch(0),
     );
   }
 }

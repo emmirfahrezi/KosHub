@@ -14,6 +14,10 @@ class FirestoreService {
       _db.collection('bookings');
   CollectionReference<Map<String, dynamic>> get _chats =>
       _db.collection('chats');
+  CollectionReference<Map<String, dynamic>> get _homeBanners =>
+      _db.collection('cms_home_banners');
+  CollectionReference<Map<String, dynamic>> get _ownerVouchers =>
+      _db.collection('owner_vouchers');
 
   Future<void> signInAdmin({
     required String email,
@@ -73,9 +77,23 @@ class FirestoreService {
       'name': user.displayName ?? fallbackName,
       'email': user.email,
       'role': existingData?['role'] as String? ?? 'penyewa',
-      'is_active': true,
+      'is_active': existingData?['is_active'] as bool? ?? true,
       'photo_url': user.photoURL,
       'phone_number': existingData?['phone_number'] as String? ?? '',
+      'account_status': existingData?['account_status'] as String? ?? 'Aktif',
+      'verification_status':
+          existingData?['verification_status'] as String? ?? 'Belum Verifikasi',
+      'requested_role': existingData?['requested_role'] as String? ?? '',
+      'activation_payment_status':
+          existingData?['activation_payment_status'] as String? ??
+          'Belum Bayar',
+      'owner_activation_fee':
+          (existingData?['owner_activation_fee'] as num?)?.toInt() ??
+          _ownerActivationBaseFee,
+      'owner_activation_discount':
+          (existingData?['owner_activation_discount'] as num?)?.toInt() ?? 0,
+      'owner_voucher_code':
+          existingData?['owner_voucher_code'] as String? ?? '',
       'created_at': existingData == null
           ? FieldValue.serverTimestamp()
           : existingData['created_at'],
@@ -118,26 +136,58 @@ class FirestoreService {
     required String approvalMode,
     required List<String> facilities,
     required String photoUrl,
+    required String phoneNumber,
+    required String ktpNumber,
+    required String emergencyContact,
+    required String bankAccount,
+    required String paymentProofUrl,
+    required String voucherCode,
   }) async {
     await user.updateDisplayName(ownerName);
+    final existingVoucher = await _findOwnerVoucherByCode(voucherCode);
+    final voucherDiscount = existingVoucher?.discountAmount ?? 0;
+    final activationFee = _ownerActivationBaseFee;
     final batch = _db.batch();
     final userRef = _users.doc(user.uid);
+    final userSnapshot = await userRef.get();
+    final existingUserData = userSnapshot.data() ?? const <String, dynamic>{};
     final kosRef = _kos.doc();
 
     batch.set(userRef, {
       'name': ownerName,
       'email': user.email,
-      'role': 'pemilik',
-      'is_active': true,
+      'role': 'penyewa',
+      'requested_role': 'pemilik',
+      'is_active': false,
       'photo_url': user.photoURL ?? photoUrl,
-      'owner_status': 'Online',
+      'phone_number': phoneNumber,
+      'ktp_number': ktpNumber,
+      'emergency_contact': emergencyContact,
+      'bank_account': bankAccount,
+      'account_status': 'Menunggu Aktivasi',
+      'verification_status': paymentProofUrl.isEmpty
+          ? 'Menunggu Pembayaran'
+          : 'Menunggu Verifikasi',
+      'activation_payment_method': 'Transfer Manual',
+      'activation_payment_status': paymentProofUrl.isEmpty
+          ? 'Belum Bayar'
+          : 'Menunggu Konfirmasi',
+      'activation_payment_proof_url': paymentProofUrl,
+      'owner_activation_fee': activationFee,
+      'owner_activation_discount': voucherDiscount,
+      'owner_voucher_code': existingVoucher?.code ?? '',
+      'owner_application_submitted_at': FieldValue.serverTimestamp(),
+      'admin_notes': '',
+      'owner_status': 'Menunggu aktivasi admin',
       'updated_at': FieldValue.serverTimestamp(),
+      'created_at':
+          existingUserData['created_at'] ?? FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
 
     batch.set(kosRef, {
       'owner_id': user.uid,
       'owner_name': ownerName,
-      'owner_status': 'Online',
+      'owner_status': 'Menunggu aktivasi admin',
       'owner_photo': user.photoURL ?? photoUrl,
       'nama_kos': kosName,
       'area': area,
@@ -152,8 +202,9 @@ class FirestoreService {
       'total_review': 0,
       'total_rooms': availableRooms,
       'available_rooms': availableRooms,
-      'status': 'active',
+      'status': 'pending_review',
       'created_at': FieldValue.serverTimestamp(),
+      'updated_at': FieldValue.serverTimestamp(),
     });
 
     await batch.commit();
@@ -173,8 +224,22 @@ class FirestoreService {
     required String approvalMode,
     required List<String> facilities,
     required String photoUrl,
+    required String phoneNumber,
+    required String ktpNumber,
+    required String emergencyContact,
+    required String bankAccount,
+    required String paymentProofUrl,
+    required String voucherCode,
   }) async {
     await user.updateDisplayName(ownerName);
+    final userSnapshot = await _users.doc(user.uid).get();
+    final userData = userSnapshot.data() ?? const <String, dynamic>{};
+    final voucher = await _findOwnerVoucherByCode(voucherCode);
+    final isApprovedOwner =
+        userData['role'] == 'pemilik' &&
+        (userData['account_status'] as String? ?? '') == 'Aktif' &&
+        (userData['verification_status'] as String? ?? '') == 'Terverifikasi';
+    final desiredListingStatus = isApprovedOwner ? 'active' : 'pending_review';
     final batch = _db.batch();
     final userRef = _users.doc(user.uid);
     final kosRef = _kos.doc(kosId);
@@ -182,17 +247,45 @@ class FirestoreService {
     batch.set(userRef, {
       'name': ownerName,
       'email': user.email,
-      'role': 'pemilik',
-      'is_active': true,
+      'role': isApprovedOwner ? 'pemilik' : 'penyewa',
+      'requested_role': 'pemilik',
+      'is_active': isApprovedOwner,
       'photo_url': user.photoURL ?? photoUrl,
-      'owner_status': 'Online',
+      'phone_number': phoneNumber,
+      'ktp_number': ktpNumber,
+      'emergency_contact': emergencyContact,
+      'bank_account': bankAccount,
+      'account_status': isApprovedOwner ? 'Aktif' : 'Menunggu Aktivasi',
+      'verification_status': isApprovedOwner
+          ? 'Terverifikasi'
+          : (paymentProofUrl.isEmpty
+                ? 'Menunggu Pembayaran'
+                : 'Menunggu Verifikasi'),
+      'activation_payment_method': 'Transfer Manual',
+      'activation_payment_status': isApprovedOwner
+          ? 'Lunas'
+          : (paymentProofUrl.isEmpty ? 'Belum Bayar' : 'Menunggu Konfirmasi'),
+      'activation_payment_proof_url': paymentProofUrl,
+      'owner_activation_fee':
+          (userData['owner_activation_fee'] as num?)?.toInt() ??
+          _ownerActivationBaseFee,
+      'owner_activation_discount':
+          voucher?.discountAmount ??
+          (userData['owner_activation_discount'] as num?)?.toInt() ??
+          0,
+      'owner_voucher_code':
+          voucher?.code ?? userData['owner_voucher_code'] as String? ?? '',
+      'owner_application_submitted_at':
+          userData['owner_application_submitted_at'] ??
+          FieldValue.serverTimestamp(),
+      'owner_status': isApprovedOwner ? 'Online' : 'Menunggu aktivasi admin',
       'updated_at': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
 
     batch.set(kosRef, {
       'owner_id': user.uid,
       'owner_name': ownerName,
-      'owner_status': 'Online',
+      'owner_status': isApprovedOwner ? 'Online' : 'Menunggu aktivasi admin',
       'owner_photo': user.photoURL ?? photoUrl,
       'nama_kos': kosName,
       'area': area,
@@ -205,7 +298,7 @@ class FirestoreService {
       'foto_urls': [photoUrl],
       'total_rooms': availableRooms,
       'available_rooms': availableRooms,
-      'status': 'active',
+      'status': desiredListingStatus,
       'updated_at': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
 
@@ -234,6 +327,18 @@ class FirestoreService {
           items.sort((a, b) => a.name.compareTo(b.name));
           return items.isEmpty ? null : items.first;
         });
+  }
+
+  Stream<KosData?> ownerManagedKosStream(String ownerId) {
+    return _kos.where('owner_id', isEqualTo: ownerId).snapshots().map((
+      snapshot,
+    ) {
+      final items = snapshot.docs
+          .map((doc) => KosData.fromMap(doc.id, doc.data()))
+          .toList();
+      items.sort((a, b) => b.id.compareTo(a.id));
+      return items.isEmpty ? null : items.first;
+    });
   }
 
   Stream<List<KosData>> kosStream() {
@@ -276,6 +381,12 @@ class FirestoreService {
         'is_active': true,
         'photo_url': ownerPhoto,
         'owner_status': 'Online',
+        'requested_role': 'pemilik',
+        'account_status': 'Aktif',
+        'verification_status': 'Terverifikasi',
+        'activation_payment_status': 'Lunas',
+        'owner_activation_fee': _ownerActivationBaseFee,
+        'owner_activation_discount': 0,
         'updated_at': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true)),
       kosMenteng.set(
@@ -476,7 +587,7 @@ class FirestoreService {
 
   Stream<List<AppUserData>> ownerUsersStream() {
     return allUsersStream().map(
-      (items) => items.where((user) => user.role == 'pemilik').toList(),
+      (items) => items.where((user) => user.hasOwnerRequest).toList(),
     );
   }
 
@@ -542,6 +653,229 @@ class FirestoreService {
         bookings: bookings.whereType<BookingData>().toList(),
       );
     });
+  }
+
+  Stream<List<HomeBannerData>> homeBannersStream() {
+    return _homeBanners.snapshots().map((snapshot) {
+      final items = snapshot.docs
+          .map((doc) => HomeBannerData.fromMap(doc.id, doc.data()))
+          .toList();
+      items.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return items;
+    });
+  }
+
+  Stream<List<OwnerVoucherData>> ownerVouchersStream() {
+    return _ownerVouchers.snapshots().map((snapshot) {
+      final items = snapshot.docs
+          .map((doc) => OwnerVoucherData.fromMap(doc.id, doc.data()))
+          .toList();
+      items.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return items;
+    });
+  }
+
+  Future<void> saveHomeBanner({
+    String? bannerId,
+    required String title,
+    required String subtitle,
+    required String imageUrl,
+    required String placement,
+    required bool isActive,
+  }) async {
+    final doc = bannerId == null || bannerId.isEmpty
+        ? _homeBanners.doc()
+        : _homeBanners.doc(bannerId);
+    final existing = bannerId == null || bannerId.isEmpty
+        ? null
+        : await doc.get();
+    await doc.set({
+      'title': title,
+      'subtitle': subtitle,
+      'image_url': imageUrl,
+      'placement': placement,
+      'is_active': isActive,
+      'updated_at': FieldValue.serverTimestamp(),
+      'created_at':
+          existing?.data()?['created_at'] ?? FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> deleteHomeBanner(String bannerId) async {
+    await _homeBanners.doc(bannerId).delete();
+  }
+
+  Future<void> saveOwnerVoucher({
+    String? voucherId,
+    required String code,
+    required String title,
+    required String description,
+    required int discountAmount,
+    required bool isActive,
+  }) async {
+    final doc = voucherId == null || voucherId.isEmpty
+        ? _ownerVouchers.doc()
+        : _ownerVouchers.doc(voucherId);
+    final existing = voucherId == null || voucherId.isEmpty
+        ? null
+        : await doc.get();
+    await doc.set({
+      'code': code.toUpperCase(),
+      'title': title,
+      'description': description,
+      'discount_amount': discountAmount,
+      'is_active': isActive,
+      'updated_at': FieldValue.serverTimestamp(),
+      'created_at':
+          existing?.data()?['created_at'] ?? FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> deleteOwnerVoucher(String voucherId) async {
+    await _ownerVouchers.doc(voucherId).delete();
+  }
+
+  Future<void> updateUserFromAdmin({
+    required String userId,
+    required String role,
+    required String accountStatus,
+    required String verificationStatus,
+    required String requestedRole,
+    String? adminNotes,
+  }) async {
+    final isOwnerActive =
+        role == 'pemilik' &&
+        accountStatus == 'Aktif' &&
+        verificationStatus == 'Terverifikasi';
+    final isActive = accountStatus == 'Aktif' || accountStatus == 'Peringatan';
+    await _users.doc(userId).set({
+      'role': role,
+      'requested_role': requestedRole,
+      'is_active': isActive,
+      'account_status': accountStatus,
+      'verification_status': verificationStatus,
+      'owner_status': isOwnerActive ? 'Online' : 'Menunggu aktivasi admin',
+      'admin_notes': adminNotes,
+      'updated_at': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    final kosDocs = await _kos.where('owner_id', isEqualTo: userId).get();
+    for (final doc in kosDocs.docs) {
+      await doc.reference.set({
+        'owner_status': isOwnerActive ? 'Online' : 'Menunggu aktivasi admin',
+        'status': isOwnerActive
+            ? 'active'
+            : verificationStatus == 'Perlu Revisi'
+            ? 'needs_revision'
+            : accountStatus == 'Suspended'
+            ? 'suspended'
+            : accountStatus == 'Ditolak'
+            ? 'hidden'
+            : 'pending_review',
+        'updated_at': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    }
+  }
+
+  Future<void> updateUserModerationStatus({
+    required AppUserData user,
+    required String accountStatus,
+    String? adminNotes,
+  }) async {
+    await updateUserFromAdmin(
+      userId: user.id,
+      role: user.role,
+      requestedRole: user.requestedRole,
+      accountStatus: accountStatus,
+      verificationStatus: user.verificationStatus,
+      adminNotes: adminNotes,
+    );
+  }
+
+  Future<void> reviewOwnerApplication({
+    required AppUserData owner,
+    required String decision,
+    String adminNotes = '',
+  }) async {
+    switch (decision) {
+      case 'approve':
+        await updateUserFromAdmin(
+          userId: owner.id,
+          role: 'pemilik',
+          requestedRole: 'pemilik',
+          accountStatus: 'Aktif',
+          verificationStatus: 'Terverifikasi',
+          adminNotes: adminNotes,
+        );
+        await _users.doc(owner.id).set({
+          'activation_payment_status': 'Lunas',
+          'owner_activated_at': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+        break;
+      case 'reject':
+        await updateUserFromAdmin(
+          userId: owner.id,
+          role: 'penyewa',
+          requestedRole: 'pemilik',
+          accountStatus: 'Ditolak',
+          verificationStatus: 'Ditolak',
+          adminNotes: adminNotes,
+        );
+        await _users.doc(owner.id).set({
+          'activation_payment_status': owner.hasActivationProof
+              ? 'Ditolak'
+              : owner.activationPaymentStatus,
+        }, SetOptions(merge: true));
+        break;
+      case 'revision':
+        await updateUserFromAdmin(
+          userId: owner.id,
+          role: 'penyewa',
+          requestedRole: 'pemilik',
+          accountStatus: 'Menunggu Aktivasi',
+          verificationStatus: 'Perlu Revisi',
+          adminNotes: adminNotes,
+        );
+        break;
+      case 'suspend':
+        await updateUserFromAdmin(
+          userId: owner.id,
+          role: 'pemilik',
+          requestedRole: 'pemilik',
+          accountStatus: 'Suspended',
+          verificationStatus: 'Suspended',
+          adminNotes: adminNotes,
+        );
+        break;
+    }
+  }
+
+  Future<void> updateActivationPaymentStatus({
+    required String userId,
+    required String paymentStatus,
+  }) async {
+    final verificationStatus = paymentStatus == 'Lunas'
+        ? 'Terverifikasi'
+        : paymentStatus == 'Menunggu Konfirmasi'
+        ? 'Menunggu Verifikasi'
+        : paymentStatus == 'Ditolak'
+        ? 'Perlu Revisi'
+        : 'Menunggu Pembayaran';
+    await _users.doc(userId).set({
+      'activation_payment_status': paymentStatus,
+      'verification_status': verificationStatus,
+      'payment_updated_at': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> updateKosListingStatus({
+    required String kosId,
+    required String listingStatus,
+  }) async {
+    await _kos.doc(kosId).set({
+      'status': listingStatus,
+      'updated_at': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
   }
 
   Future<void> createBooking({
@@ -758,6 +1092,22 @@ class FirestoreService {
     }
 
     return KosData.fromMap(kosDoc.id, kosDoc.data()!);
+  }
+
+  Future<OwnerVoucherData?> _findOwnerVoucherByCode(String code) async {
+    if (code.trim().isEmpty) {
+      return null;
+    }
+    final snapshot = await _ownerVouchers
+        .where('code', isEqualTo: code.trim().toUpperCase())
+        .where('is_active', isEqualTo: true)
+        .limit(1)
+        .get();
+    if (snapshot.docs.isEmpty) {
+      return null;
+    }
+    final doc = snapshot.docs.first;
+    return OwnerVoucherData.fromMap(doc.id, doc.data());
   }
 
   Map<String, dynamic>? _asStringMap(Object? value) {

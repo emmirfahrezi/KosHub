@@ -26,7 +26,7 @@ class _MainShellState extends State<MainShell> {
           return AdminShell(profile: profile!);
         }
 
-        final isOwner = profile?.role == 'pemilik';
+        final isOwner = profile?.canAccessOwnerShell == true;
         final pages = isOwner
             ? [
                 OwnerDashboardPage(

@@ -51,20 +51,6 @@ class AdminDashboardPage extends StatelessWidget {
               ),
             ],
           ),
-          floatingActionButton: FloatingActionButton.extended(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute<void>(
-                  builder: (_) => const AdminBroadcastPage(),
-                ),
-              );
-            },
-            backgroundColor: const Color(0xFF182022),
-            foregroundColor: Colors.white,
-            icon: const Icon(Icons.campaign_rounded),
-            label: const Text('Broadcast'),
-          ),
           body: SafeArea(
             top: false,
             child: SingleChildScrollView(
@@ -96,7 +82,7 @@ class AdminDashboardPage extends StatelessWidget {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          '${profile.roleLabel} Koshub | pusat kontrol marketplace kos',
+                          '${profile.roleLabel} Koshub | pusat aktivasi owner dan kontrol listing',
                           style: const TextStyle(
                             color: Colors.white70,
                             height: 1.45,
@@ -108,13 +94,16 @@ class AdminDashboardPage extends StatelessWidget {
                           runSpacing: 8,
                           children: [
                             _StatusBadge(
-                              label: '${data.bookingsToday} booking hari ini',
+                              label:
+                                  '${data.ownerRequestsToday} pengajuan owner hari ini',
                             ),
                             _StatusBadge(
-                              label: '${data.activeComplaints} komplain aktif',
+                              label:
+                                  '${data.pendingOwnerPayments} pembayaran menunggu cek',
                             ),
                             _StatusBadge(
-                              label: '${data.blockedUsers} user diblokir',
+                              label:
+                                  '${data.pendingListings} listing perlu review',
                             ),
                           ],
                         ),
@@ -129,28 +118,28 @@ class AdminDashboardPage extends StatelessWidget {
                       _AdminMetricCard(
                         label: 'Total Pengguna',
                         value: '${data.totalUsers}',
-                        subtitle: 'Akun penyewa aktif',
+                        subtitle: 'Semua akun non-admin',
                         icon: Icons.groups_rounded,
                         onTap: onOpenUsers,
                       ),
                       _AdminMetricCard(
-                        label: 'Pemilik Kos',
+                        label: 'Pemilik Aktif',
                         value: '${data.totalOwners}',
-                        subtitle: 'Verifikasi & suspend',
+                        subtitle: 'Sudah diverifikasi admin',
                         icon: Icons.verified_user_rounded,
                         onTap: onOpenOwners,
                       ),
                       _AdminMetricCard(
                         label: 'Listing Kos',
                         value: '${data.totalKos}',
-                        subtitle: '${data.reportedKos} dilaporkan',
+                        subtitle: '${data.pendingListings} perlu moderasi',
                         icon: Icons.apartment_rounded,
                         onTap: onOpenListings,
                       ),
                       _AdminMetricCard(
                         label: 'Pendapatan App',
                         value: _currency(data.platformRevenue),
-                        subtitle: 'Fee bulan ini',
+                        subtitle: 'Dari aktivasi owner',
                         icon: Icons.payments_rounded,
                         onTap: onOpenPayments,
                       ),
@@ -159,7 +148,8 @@ class AdminDashboardPage extends StatelessWidget {
                   const SizedBox(height: 20),
                   _AdminSectionCard(
                     title: 'Quick Control',
-                    subtitle: 'Semua flow inti admin bisa dibuka dari sini.',
+                    subtitle:
+                        'Admin fokus ke pengguna, aktivasi owner, listing, CMS home, dan voucher.',
                     child: Wrap(
                       spacing: 10,
                       runSpacing: 10,
@@ -180,12 +170,12 @@ class AdminDashboardPage extends StatelessWidget {
                           onTap: onOpenListings,
                         ),
                         _AdminShortcutChip(
-                          label: 'Monitor Pembayaran',
+                          label: 'Pembayaran Aktivasi',
                           icon: Icons.account_balance_wallet_rounded,
                           onTap: onOpenPayments,
                         ),
                         _AdminShortcutChip(
-                          label: 'Laporan & CMS',
+                          label: 'CMS & Voucher',
                           icon: Icons.hub_rounded,
                           onTap: onOpenControl,
                         ),
@@ -195,55 +185,61 @@ class AdminDashboardPage extends StatelessWidget {
                   const SizedBox(height: 20),
                   _AdminSectionCard(
                     title: 'Aktivitas Realtime',
-                    subtitle: 'Alur terbaru di seluruh sistem.',
-                    child: Column(
-                      children: data.recentActivities
-                          .map(
-                            (activity) => ListTile(
-                              contentPadding: EdgeInsets.zero,
-                              leading: CircleAvatar(
-                                backgroundColor: const Color(0xFFEAF1FF),
-                                child: Icon(
-                                  activity.icon,
-                                  color: const Color(0xFF35589F),
-                                ),
-                              ),
-                              title: Text(activity.title),
-                              subtitle: Text(activity.subtitle),
-                              trailing: Text(activity.timeLabel),
-                            ),
+                    subtitle: 'Alur terbaru pengajuan owner dan listing.',
+                    child: data.recentActivities.isEmpty
+                        ? const Text(
+                            'Belum ada aktivitas terbaru.',
+                            style: TextStyle(color: Color(0xFF5D6B6B)),
                           )
-                          .toList(),
-                    ),
+                        : Column(
+                            children: data.recentActivities
+                                .map(
+                                  (activity) => ListTile(
+                                    contentPadding: EdgeInsets.zero,
+                                    leading: CircleAvatar(
+                                      backgroundColor: const Color(0xFFEAF1FF),
+                                      child: Icon(
+                                        activity.icon,
+                                        color: const Color(0xFF35589F),
+                                      ),
+                                    ),
+                                    title: Text(activity.title),
+                                    subtitle: Text(activity.subtitle),
+                                    trailing: Text(activity.timeLabel),
+                                  ),
+                                )
+                                .toList(),
+                          ),
                   ),
                   const SizedBox(height: 20),
                   _AdminSectionCard(
                     title: 'Fokus Hari Ini',
-                    subtitle: 'Area yang perlu perhatian admin paling dekat.',
+                    subtitle:
+                        'Area yang paling sering perlu keputusan admin aplikasi.',
                     child: Column(
                       children: [
                         _AdminActionTile(
-                          title: 'Pemilik terbaru',
+                          title: 'Owner terbaru',
                           subtitle: data.latestOwnerSummary,
                           icon: Icons.badge_rounded,
                           onTap: onOpenOwners,
                         ),
                         _AdminActionTile(
-                          title: 'Kos paling populer',
-                          subtitle: data.topKosSummary,
+                          title: 'Listing teratas',
+                          subtitle: data.topListingSummary,
                           icon: Icons.trending_up_rounded,
                           onTap: onOpenListings,
                         ),
                         _AdminActionTile(
-                          title: 'Booking terbanyak',
-                          subtitle: data.topBookingSummary,
-                          icon: Icons.book_online_rounded,
+                          title: 'Pembayaran aktivasi',
+                          subtitle: data.latestPaymentSummary,
+                          icon: Icons.receipt_long_rounded,
                           onTap: onOpenPayments,
                         ),
                         _AdminActionTile(
                           title: 'Analytics global',
                           subtitle:
-                              'Growth user, owner, revenue, okupansi, dan kota aktif.',
+                              'User, owner aktif, listing, pending review, dan revenue owner activation.',
                           icon: Icons.analytics_rounded,
                           onTap: onOpenControl,
                         ),
@@ -291,7 +287,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
           }
           return user.name.toLowerCase().contains(query) ||
               user.email.toLowerCase().contains(query) ||
-              user.role.toLowerCase().contains(query);
+              user.roleLabel.toLowerCase().contains(query);
         }).toList();
 
         return Scaffold(
@@ -315,10 +311,13 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                     padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
                     itemBuilder: (context, index) {
                       final user = users[index];
+                      final badge = user.hasOwnerRequest
+                          ? user.verificationStatus
+                          : user.accountStatus;
                       return _AdminEntityTile(
                         title: user.name,
                         subtitle: '${user.email} | ${user.roleLabel}',
-                        badge: user.accountStatus,
+                        badge: badge,
                         icon: Icons.person_rounded,
                         onTap: () {
                           Navigator.push(
@@ -391,8 +390,10 @@ class _AdminOwnersPageState extends State<AdminOwnersPage> {
                     children:
                         [
                               'Semua',
-                              'Pending',
+                              'Menunggu Pembayaran',
+                              'Menunggu Verifikasi',
                               'Terverifikasi',
+                              'Perlu Revisi',
                               'Ditolak',
                               'Suspended',
                             ]
@@ -466,18 +467,17 @@ class AdminListingsPage extends StatelessWidget {
         return Scaffold(
           appBar: AppBar(
             backgroundColor: Colors.white,
-            title: const Text('Kelola Semua Kos'),
+            title: const Text('Moderasi Listing Kos'),
           ),
           body: ListView.separated(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
             itemBuilder: (context, index) {
               final kos = kosList[index];
-              final status = kos.availableRooms == 0 ? 'Penuh' : 'Aktif';
               return _AdminEntityTile(
                 title: kos.name,
                 subtitle:
                     '${kos.area} | ${kos.availableRooms}/${kos.totalRooms} kamar | ${kos.ownerName}',
-                badge: status,
+                badge: kos.listingStatusLabel,
                 icon: Icons.apartment_rounded,
                 onTap: () {
                   Navigator.push(
@@ -510,11 +510,13 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage> {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<List<BookingData>>(
-      stream: FirestoreService.instance.allBookingsStream(),
+    return StreamBuilder<List<AppUserData>>(
+      stream: FirestoreService.instance.ownerUsersStream(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const _LoadingScreen(label: 'Memuat transaksi aplikasi...');
+          return const _LoadingScreen(
+            label: 'Memuat pembayaran aktivasi owner...',
+          );
         }
         if (snapshot.hasError) {
           return _AdminAccessErrorPage(
@@ -522,18 +524,16 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage> {
           );
         }
 
-        final bookings = (snapshot.data ?? const <BookingData>[]).where((
-          booking,
-        ) {
+        final owners = (snapshot.data ?? const <AppUserData>[]).where((owner) {
           switch (_filter) {
-            case 'Pending':
-              return booking.paymentStatus == 'Pending';
-            case 'Failed':
-              return booking.paymentStatus == 'Failed';
-            case 'Refund':
-              return booking.paymentStatus == 'Refund';
+            case 'Menunggu Konfirmasi':
+              return owner.activationPaymentStatus == 'Menunggu Konfirmasi';
             case 'Lunas':
-              return booking.paymentStatus == 'Lunas';
+              return owner.activationPaymentStatus == 'Lunas';
+            case 'Ditolak':
+              return owner.activationPaymentStatus == 'Ditolak';
+            case 'Belum Bayar':
+              return owner.activationPaymentStatus == 'Belum Bayar';
             default:
               return true;
           }
@@ -542,7 +542,7 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage> {
         return Scaffold(
           appBar: AppBar(
             backgroundColor: Colors.white,
-            title: const Text('Kelola Pembayaran'),
+            title: const Text('Pembayaran Aktivasi Owner'),
           ),
           body: SafeArea(
             top: false,
@@ -553,44 +553,52 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage> {
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
                     scrollDirection: Axis.horizontal,
-                    children: ['Semua', 'Pending', 'Lunas', 'Failed', 'Refund']
-                        .map(
-                          (item) => Padding(
-                            padding: const EdgeInsets.only(right: 10),
-                            child: ChoiceChip(
-                              label: Text(item),
-                              selected: _filter == item,
-                              onSelected: (_) => setState(() => _filter = item),
-                            ),
-                          ),
-                        )
-                        .toList(),
+                    children:
+                        [
+                              'Semua',
+                              'Menunggu Konfirmasi',
+                              'Lunas',
+                              'Ditolak',
+                              'Belum Bayar',
+                            ]
+                            .map(
+                              (item) => Padding(
+                                padding: const EdgeInsets.only(right: 10),
+                                child: ChoiceChip(
+                                  label: Text(item),
+                                  selected: _filter == item,
+                                  onSelected: (_) =>
+                                      setState(() => _filter = item),
+                                ),
+                              ),
+                            )
+                            .toList(),
                   ),
                 ),
                 Expanded(
                   child: ListView.separated(
                     padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
                     itemBuilder: (context, index) {
-                      final booking = bookings[index];
+                      final owner = owners[index];
                       return _AdminEntityTile(
-                        title: booking.userName,
+                        title: owner.name,
                         subtitle:
-                            '${booking.kos.name} | ${booking.total} | ${booking.paymentMethod}',
-                        badge: booking.paymentStatus,
+                            '${owner.email} | ${_currency(owner.ownerNetActivationFee)} | ${owner.activationPaymentMethod}',
+                        badge: owner.activationPaymentStatus,
                         icon: Icons.receipt_long_rounded,
                         onTap: () {
                           Navigator.push(
                             context,
                             MaterialPageRoute<void>(
                               builder: (_) =>
-                                  AdminPaymentDetailPage(booking: booking),
+                                  AdminPaymentDetailPage(owner: owner),
                             ),
                           );
                         },
                       );
                     },
                     separatorBuilder: (_, _) => const SizedBox(height: 12),
-                    itemCount: bookings.length,
+                    itemCount: owners.length,
                   ),
                 ),
               ],
@@ -610,7 +618,7 @@ class AdminControlCenterPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.white,
-        title: const Text('Sistem & Moderasi'),
+        title: const Text('Sistem & CMS Admin'),
       ),
       body: SafeArea(
         top: false,
@@ -618,20 +626,21 @@ class AdminControlCenterPage extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
           children: [
             _AdminSectionCard(
-              title: 'Moderasi & Laporan',
-              subtitle: 'Komplain, mediasi, dan keputusan admin.',
+              title: 'Moderasi & Review',
+              subtitle:
+                  'Fokus admin adalah validasi owner, listing, dan laporan aplikasi.',
               child: Column(
                 children: [
                   _AdminActionTile(
-                    title: 'Moderasi laporan',
+                    title: 'Moderasi listing',
                     subtitle:
-                        'Penipuan, fasilitas bohong, toxic owner, dan spam booking.',
-                    icon: Icons.gavel_rounded,
+                        'Approve, hide, suspend, atau minta revisi listing kos.',
+                    icon: Icons.approval_rounded,
                     onTap: () {
                       Navigator.push(
                         context,
                         MaterialPageRoute<void>(
-                          builder: (_) => const AdminReportsPage(),
+                          builder: (_) => const AdminListingsPage(),
                         ),
                       );
                     },
@@ -639,7 +648,7 @@ class AdminControlCenterPage extends StatelessWidget {
                   _AdminActionTile(
                     title: 'Analytics global',
                     subtitle:
-                        'Growth user, owner, revenue, kota aktif, dan okupansi.',
+                        'User, owner aktif, listing review, dan revenue aktivasi owner.',
                     icon: Icons.analytics_rounded,
                     onTap: () {
                       Navigator.push(
@@ -655,14 +664,14 @@ class AdminControlCenterPage extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             _AdminSectionCard(
-              title: 'Konten & Notifikasi',
-              subtitle: 'CMS, banner, FAQ, dan push notification center.',
+              title: 'Konten & Promo',
+              subtitle: 'Banner home dan voucher owner bisa dikelola langsung.',
               child: Column(
                 children: [
                   _AdminActionTile(
-                    title: 'CMS Koshub',
+                    title: 'CMS banner home',
                     subtitle:
-                        'Kelola banner homepage, promo, artikel, dan FAQ.',
+                        'CRUD gambar hero dan promo yang tampil di halaman utama.',
                     icon: Icons.dashboard_customize_rounded,
                     onTap: () {
                       Navigator.push(
@@ -674,15 +683,15 @@ class AdminControlCenterPage extends StatelessWidget {
                     },
                   ),
                   _AdminActionTile(
-                    title: 'Push notification center',
+                    title: 'Voucher owner',
                     subtitle:
-                        'Broadcast promo, maintenance aplikasi, dan pengumuman global.',
-                    icon: Icons.notifications_active_rounded,
+                        'Atur kode voucher dan potongan harga aktivasi owner.',
+                    icon: Icons.local_offer_rounded,
                     onTap: () {
                       Navigator.push(
                         context,
                         MaterialPageRoute<void>(
-                          builder: (_) => const AdminBroadcastPage(),
+                          builder: (_) => const AdminOwnerVoucherPage(),
                         ),
                       );
                     },
@@ -693,13 +702,13 @@ class AdminControlCenterPage extends StatelessWidget {
             const SizedBox(height: 16),
             _AdminSectionCard(
               title: 'Keamanan & Audit',
-              subtitle: 'Session, activity, dan jejak perubahan sistem.',
+              subtitle: 'Pantau status akun, owner, dan perubahan penting.',
               child: Column(
                 children: [
                   _AdminActionTile(
                     title: 'Audit log',
                     subtitle:
-                        'Track suspend owner, ubah harga, cancel booking, dan aksi admin.',
+                        'Track status owner, pembayaran aktivasi, dan review akun.',
                     icon: Icons.history_edu_rounded,
                     onTap: () {
                       Navigator.push(

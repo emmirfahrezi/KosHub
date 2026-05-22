@@ -116,6 +116,83 @@ Future<void> _showLightDialog(
   );
 }
 
+Future<void> _confirmAdminLogout(
+  BuildContext context, {
+  required String email,
+}) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: const Text('Keluar dari admin?'),
+        content: Text(
+          'Sesi admin ${email.isEmpty ? '' : 'untuk $email '}akan diakhiri dan kamu akan diarahkan ke login admin.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Keluar'),
+          ),
+        ],
+      );
+    },
+  );
+
+  if (confirmed != true || !context.mounted) {
+    return;
+  }
+
+  try {
+    await FirebaseAuth.instance.signOut();
+    if (!context.mounted) {
+      return;
+    }
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          title: const Text('Logout berhasil'),
+          content: const Text(
+            'Kamu sudah keluar dari panel admin. Tekan tombol di bawah untuk masuk lagi.',
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const AdminLoginPage(),
+                  ),
+                  (_) => false,
+                );
+              },
+              child: const Text('Masuk Lagi'),
+            ),
+          ],
+        );
+      },
+    );
+  } on FirebaseAuthException catch (error) {
+    if (!context.mounted) {
+      return;
+    }
+    await _showLightDialog(
+      context,
+      title: 'Logout gagal',
+      message: error.message ?? 'Sesi admin belum berhasil diakhiri.',
+    );
+  }
+}
+
 bool _isAdminRole(String role) {
   return role == 'super_admin' ||
       role == 'admin' ||
@@ -147,6 +224,8 @@ const List<String> _paymentStatuses = [
   'Belum Bayar',
   'Overdue',
 ];
+
+const int _ownerActivationBaseFee = 250000;
 
 int _monthsFromDuration(String durationLabel) {
   return int.tryParse(durationLabel.split(' ').first) ?? 1;

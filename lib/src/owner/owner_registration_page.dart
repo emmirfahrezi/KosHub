@@ -1,9 +1,10 @@
 part of '../../main.dart';
 
 class OwnerRegistrationPage extends StatefulWidget {
-  const OwnerRegistrationPage({super.key, this.existingKos});
+  const OwnerRegistrationPage({super.key, this.existingKos, this.profile});
 
   final KosData? existingKos;
+  final AppUserData? profile;
 
   @override
   State<OwnerRegistrationPage> createState() => _OwnerRegistrationPageState();
@@ -19,10 +20,17 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
   final _roomController = TextEditingController(text: '1');
   final _facilityController = TextEditingController();
   final _photoController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _ktpController = TextEditingController();
+  final _emergencyController = TextEditingController();
+  final _bankAccountController = TextEditingController();
+  final _paymentProofController = TextEditingController();
+  final _voucherController = TextEditingController();
 
   String _selectedCategory = 'Campur';
   String _selectedApprovalMode = 'Manual Approval';
   bool _saving = false;
+  int _discountAmount = 0;
 
   @override
   void initState() {
@@ -46,6 +54,23 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
         existingKos != null && existingKos.gallery.isNotEmpty
         ? existingKos.gallery.first
         : _sampleKosMap1['foto_urls'][0] as String;
+    _phoneController.text = widget.profile?.phoneNumber == '-'
+        ? ''
+        : widget.profile?.phoneNumber ?? '';
+    _ktpController.text = widget.profile?.ktpNumber == '-'
+        ? ''
+        : widget.profile?.ktpNumber ?? '';
+    _emergencyController.text = widget.profile?.emergencyContact == '-'
+        ? ''
+        : widget.profile?.emergencyContact ?? '';
+    _bankAccountController.text =
+        widget.profile?.bankAccountLabel == 'Belum diisi'
+        ? ''
+        : widget.profile?.bankAccountLabel ?? '';
+    _paymentProofController.text =
+        widget.profile?.activationPaymentProofUrl ?? '';
+    _voucherController.text = widget.profile?.ownerVoucherCode ?? '';
+    _discountAmount = widget.profile?.ownerActivationDiscount ?? 0;
     _selectedCategory = existingKos?.category ?? 'Campur';
     _selectedApprovalMode = existingKos?.approvalMode ?? 'Manual Approval';
   }
@@ -61,16 +86,35 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
     _roomController.dispose();
     _facilityController.dispose();
     _photoController.dispose();
+    _phoneController.dispose();
+    _ktpController.dispose();
+    _emergencyController.dispose();
+    _bankAccountController.dispose();
+    _paymentProofController.dispose();
+    _voucherController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final isEditing = widget.existingKos != null;
+    final isApprovedOwner =
+        widget.profile?.canAccessOwnerShell == true ||
+        widget.existingKos?.listingStatus == 'active';
+    final feeAfterDiscount = math.max(
+      0,
+      _ownerActivationBaseFee - _discountAmount,
+    );
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(isEditing ? 'Edit Listing Kos' : 'Daftar Pemilik Kos'),
+        title: Text(
+          isApprovedOwner
+              ? 'Edit Listing Kos'
+              : isEditing
+              ? 'Edit Pengajuan Pemilik'
+              : 'Daftar Pemilik Kos',
+        ),
         backgroundColor: Colors.white,
       ),
       body: ListView(
@@ -86,8 +130,10 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  isEditing
+                  isApprovedOwner
                       ? 'Perbarui data listing kosmu'
+                      : isEditing
+                      ? 'Perbarui pengajuan owner dan listing awalmu'
                       : 'Lengkapi data kos pertamamu',
                   style: const TextStyle(
                     fontSize: 18,
@@ -96,9 +142,9 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  isEditing
+                  isApprovedOwner
                       ? 'Nama kos, harga, fasilitas, dan detail lainnya bisa kamu ubah kapan saja dari sini.'
-                      : 'Setelah dikirim, akunmu akan berubah menjadi pemilik dan listing kos langsung tampil di halaman utama.',
+                      : 'Setelah dikirim, admin akan cek bukti pembayaran aktivasi, verifikasi data, lalu mengaktifkan akun pemilik dan listing kosmu.',
                   style: const TextStyle(
                     color: Color(0xFF5D6B6B),
                     height: 1.45,
@@ -108,6 +154,122 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
             ),
           ),
           const SizedBox(height: 20),
+          if (!isApprovedOwner) ...[
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Biaya Aktivasi Owner',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 12),
+                  _SummaryRow(
+                    label: 'Biaya dasar',
+                    value: _currency(_ownerActivationBaseFee),
+                  ),
+                  const SizedBox(height: 8),
+                  _SummaryRow(
+                    label: 'Potongan voucher',
+                    value: _currency(_discountAmount),
+                  ),
+                  const SizedBox(height: 8),
+                  _SummaryRow(
+                    label: 'Total dibayar',
+                    value: _currency(feeAfterDiscount),
+                    bold: true,
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Upload bukti transfer manual agar admin bisa konfirmasi dan mengaktifkan akun pemilik kos.',
+                    style: TextStyle(color: Color(0xFF5D6B6B), height: 1.45),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            _InputField(
+              controller: _phoneController,
+              label: 'Nomor HP',
+              hintText: 'Contoh: 081234567890',
+              keyboardType: TextInputType.phone,
+            ),
+            const SizedBox(height: 16),
+            _InputField(
+              controller: _ktpController,
+              label: 'Nomor KTP',
+              hintText: 'Masukkan nomor KTP pemilik',
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 16),
+            _InputField(
+              controller: _emergencyController,
+              label: 'Kontak darurat',
+              hintText: 'Nama / nomor kontak darurat',
+            ),
+            const SizedBox(height: 16),
+            _InputField(
+              controller: _bankAccountController,
+              label: 'Rekening penerima',
+              hintText: 'Contoh: BCA 1234567890 a.n Nama Pemilik',
+              maxLines: 2,
+            ),
+            const SizedBox(height: 16),
+            StreamBuilder<List<OwnerVoucherData>>(
+              stream: FirestoreService.instance.ownerVouchersStream(),
+              builder: (context, snapshot) {
+                final vouchers = (snapshot.data ?? const <OwnerVoucherData>[])
+                    .where((item) => item.isActive)
+                    .toList();
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _InputField(
+                      controller: _voucherController,
+                      label: 'Kode voucher owner',
+                      hintText: 'Opsional, contoh: OWNERHEMAT',
+                    ),
+                    if (vouchers.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: vouchers
+                            .map(
+                              (voucher) => ActionChip(
+                                label: Text(
+                                  '${voucher.code} • ${_currency(voucher.discountAmount)}',
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    _voucherController.text = voucher.code;
+                                    _discountAmount = voucher.discountAmount;
+                                  });
+                                },
+                              ),
+                            )
+                            .toList(),
+                      ),
+                    ],
+                  ],
+                );
+              },
+            ),
+            const SizedBox(height: 16),
+            _InputField(
+              controller: _paymentProofController,
+              label: 'URL bukti pembayaran',
+              hintText: 'Tempel link bukti transfer manual',
+              keyboardType: TextInputType.url,
+              maxLines: 2,
+            ),
+            const SizedBox(height: 20),
+          ],
           _InputField(
             controller: _ownerNameController,
             label: 'Nama pemilik',
@@ -212,6 +374,10 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
 
   Future<void> _submit() async {
     final ownerName = _ownerNameController.text.trim();
+    final phoneNumber = _phoneController.text.trim();
+    final ktpNumber = _ktpController.text.trim();
+    final emergencyContact = _emergencyController.text.trim();
+    final bankAccount = _bankAccountController.text.trim();
     final kosName = _kosNameController.text.trim();
     final area = _areaController.text.trim();
     final address = _addressController.text.trim();
@@ -219,11 +385,16 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
     final monthlyPrice = int.tryParse(_priceController.text.trim());
     final availableRooms = int.tryParse(_roomController.text.trim());
     final photoUrl = _photoController.text.trim();
+    final paymentProofUrl = _paymentProofController.text.trim();
+    final voucherCode = _voucherController.text.trim();
     final facilities = _facilityController.text
         .split(',')
         .map((item) => item.trim())
         .where((item) => item.isNotEmpty)
         .toList();
+    final isApprovedOwner =
+        widget.profile?.canAccessOwnerShell == true ||
+        widget.existingKos?.listingStatus == 'active';
 
     if (ownerName.isEmpty ||
         kosName.isEmpty ||
@@ -234,6 +405,16 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
         availableRooms == null ||
         photoUrl.isEmpty) {
       _showMessage('Semua data wajib diisi dengan benar.');
+      return;
+    }
+
+    if (!isApprovedOwner &&
+        (phoneNumber.isEmpty ||
+            ktpNumber.isEmpty ||
+            emergencyContact.isEmpty ||
+            bankAccount.isEmpty ||
+            paymentProofUrl.isEmpty)) {
+      _showMessage('Lengkapi identitas owner dan bukti pembayaran aktivasi.');
       return;
     }
 
@@ -259,6 +440,12 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
           approvalMode: _selectedApprovalMode,
           facilities: facilities,
           photoUrl: photoUrl,
+          phoneNumber: phoneNumber,
+          ktpNumber: ktpNumber,
+          emergencyContact: emergencyContact,
+          bankAccount: bankAccount,
+          paymentProofUrl: paymentProofUrl,
+          voucherCode: voucherCode,
         );
       } else {
         await FirestoreService.instance.updateOwnerKos(
@@ -275,6 +462,12 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
           approvalMode: _selectedApprovalMode,
           facilities: facilities,
           photoUrl: photoUrl,
+          phoneNumber: phoneNumber,
+          ktpNumber: ktpNumber,
+          emergencyContact: emergencyContact,
+          bankAccount: bankAccount,
+          paymentProofUrl: paymentProofUrl,
+          voucherCode: voucherCode,
         );
       }
       if (!mounted) {
@@ -283,9 +476,9 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            widget.existingKos == null
-                ? 'Pendaftaran pemilik berhasil. Listing kos kamu sudah aktif.'
-                : 'Perubahan listing kos berhasil disimpan.',
+            isApprovedOwner
+                ? 'Perubahan listing kos berhasil disimpan.'
+                : 'Pengajuan owner berhasil dikirim. Admin akan cek bukti pembayaran dan mengaktifkan akunmu.',
           ),
         ),
       );

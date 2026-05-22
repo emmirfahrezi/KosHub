@@ -59,5 +59,4 @@ class DefaultFirebaseOptions {
     projectId: 'koshub-d9acd',
     storageBucket: 'koshub-d9acd.firebasestorage.app',
   );
-
 }

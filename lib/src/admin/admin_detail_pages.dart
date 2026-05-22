@@ -1,9 +1,31 @@
 part of '../../main.dart';
 
-class AdminUserDetailPage extends StatelessWidget {
+class AdminUserDetailPage extends StatefulWidget {
   const AdminUserDetailPage({super.key, required this.user});
 
   final AppUserData user;
+
+  @override
+  State<AdminUserDetailPage> createState() => _AdminUserDetailPageState();
+}
+
+class _AdminUserDetailPageState extends State<AdminUserDetailPage> {
+  late String _accountStatus;
+  late final TextEditingController _notesController;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _accountStatus = widget.user.accountStatus;
+    _notesController = TextEditingController(text: widget.user.adminNotes);
+  }
+
+  @override
+  void dispose() {
+    _notesController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -16,38 +38,75 @@ class AdminUserDetailPage extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
         children: [
           _AdminDetailHeader(
-            title: user.name,
-            subtitle: '${user.roleLabel} | ${user.email}',
-            badge: user.accountStatus,
+            title: widget.user.name,
+            subtitle: '${widget.user.roleLabel} | ${widget.user.email}',
+            badge: _accountStatus,
           ),
           const SizedBox(height: 16),
           _AdminSectionCard(
             title: 'Informasi Akun',
-            subtitle: 'Ringkasan identitas dan keamanan akun.',
+            subtitle: 'Ringkasan identitas dan status pengguna.',
             child: Column(
               children: [
-                _DetailRow(label: 'Nomor HP', value: user.phoneNumber),
+                _DetailRow(label: 'Nomor HP', value: widget.user.phoneNumber),
                 const SizedBox(height: 10),
                 _DetailRow(
                   label: 'Kontak darurat',
-                  value: user.emergencyContact,
+                  value: widget.user.emergencyContact,
                 ),
                 const SizedBox(height: 10),
-                _DetailRow(label: 'KTP', value: user.ktpNumber),
+                _DetailRow(label: 'KTP', value: widget.user.ktpNumber),
                 const SizedBox(height: 10),
-                _DetailRow(label: 'Login activity', value: user.loginActivity),
+                _DetailRow(
+                  label: 'Login activity',
+                  value: widget.user.loginActivity,
+                ),
               ],
             ),
           ),
           const SizedBox(height: 16),
           _AdminSectionCard(
-            title: 'Aksi Admin',
-            subtitle: 'Tindakan umum untuk pengawasan akun.',
+            title: 'Moderasi Pengguna',
+            subtitle:
+                'Role sistem tidak diubah dari sini. Admin cukup beri peringatan atau blokir akun bila perlu.',
             child: Column(
-              children: const [
-                _StaticActionLine('Suspend akun sementara'),
-                _StaticActionLine('Ban akun bila terindikasi scam'),
-                _StaticActionLine('Reset status atau minta verifikasi ulang'),
+              children: [
+                _DetailRow(label: 'Role akun', value: widget.user.roleLabel),
+                const SizedBox(height: 10),
+                _SelectCard(
+                  label: 'Status akun',
+                  value: _accountStatus,
+                  items: const ['Aktif', 'Peringatan', 'Suspended', 'Diblokir'],
+                  onChanged: (value) => setState(() => _accountStatus = value),
+                ),
+                const SizedBox(height: 12),
+                _InputField(
+                  controller: _notesController,
+                  label: 'Catatan admin',
+                  hintText: 'Opsional, misalnya alasan peringatan atau blokir',
+                  maxLines: 3,
+                ),
+                const SizedBox(height: 14),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: _saving ? null : _save,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF182022),
+                      foregroundColor: Colors.white,
+                    ),
+                    child: _saving
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text('Simpan Perubahan'),
+                  ),
+                ),
               ],
             ),
           ),
@@ -55,15 +114,68 @@ class AdminUserDetailPage extends StatelessWidget {
       ),
     );
   }
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    try {
+      await FirestoreService.instance.updateUserModerationStatus(
+        user: widget.user,
+        accountStatus: _accountStatus,
+        adminNotes: _notesController.text.trim(),
+      );
+      if (!mounted) {
+        return;
+      }
+      await _showLightDialog(
+        context,
+        title: 'Perubahan disimpan',
+        message: 'Status moderasi pengguna berhasil diperbarui.',
+      );
+    } on FirebaseException catch (error) {
+      if (!mounted) {
+        return;
+      }
+      await _showLightDialog(
+        context,
+        title: 'Gagal menyimpan',
+        message: _firebaseMessage(error),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _saving = false);
+      }
+    }
+  }
 }
 
-class AdminOwnerDetailPage extends StatelessWidget {
+class AdminOwnerDetailPage extends StatefulWidget {
   const AdminOwnerDetailPage({super.key, required this.owner});
 
   final AppUserData owner;
 
   @override
+  State<AdminOwnerDetailPage> createState() => _AdminOwnerDetailPageState();
+}
+
+class _AdminOwnerDetailPageState extends State<AdminOwnerDetailPage> {
+  late final TextEditingController _notesController;
+  bool _loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _notesController = TextEditingController(text: widget.owner.adminNotes);
+  }
+
+  @override
+  void dispose() {
+    _notesController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final owner = widget.owner;
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.white,
@@ -80,7 +192,8 @@ class AdminOwnerDetailPage extends StatelessWidget {
           const SizedBox(height: 16),
           _AdminSectionCard(
             title: 'Data Verifikasi',
-            subtitle: 'Checklist yang bisa dipakai admin saat approve.',
+            subtitle:
+                'Checklist yang dipakai admin sebelum mengaktifkan owner.',
             child: Column(
               children: [
                 _DetailRow(label: 'Nomor HP', value: owner.phoneNumber),
@@ -93,21 +206,85 @@ class AdminOwnerDetailPage extends StatelessWidget {
                   label: 'Kontak darurat',
                   value: owner.emergencyContact,
                 ),
+                const SizedBox(height: 10),
+                _DetailRow(
+                  label: 'Pembayaran aktivasi',
+                  value: owner.activationPaymentStatus,
+                ),
+                const SizedBox(height: 10),
+                _DetailRow(
+                  label: 'Nominal bersih',
+                  value: _currency(owner.ownerNetActivationFee),
+                ),
+                const SizedBox(height: 10),
+                _DetailRow(
+                  label: 'Voucher',
+                  value: owner.ownerVoucherCode.isEmpty
+                      ? '-'
+                      : owner.ownerVoucherCode,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          _AdminSectionCard(
+            title: 'Bukti Pembayaran',
+            subtitle: 'Admin cukup monitor aktivasi owner, bukan sewa kos.',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  owner.activationPaymentProofUrl.isEmpty
+                      ? 'Belum ada bukti pembayaran.'
+                      : owner.activationPaymentProofUrl,
+                  style: const TextStyle(
+                    color: Color(0xFF35589F),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _InputField(
+                  controller: _notesController,
+                  label: 'Catatan admin',
+                  hintText: 'Misalnya: bukti jelas, perlu revisi, atau reject',
+                  maxLines: 3,
+                ),
               ],
             ),
           ),
           const SizedBox(height: 16),
           _AdminSectionCard(
             title: 'Aksi Verifikasi',
-            subtitle: 'Approve, reject, suspend, atau minta revisi data.',
+            subtitle:
+                'Approve akan mengaktifkan akun owner dan publish listingnya.',
             child: Wrap(
               spacing: 10,
               runSpacing: 10,
-              children: const [
-                _StaticBadgeChip('Approve'),
-                _StaticBadgeChip('Reject'),
-                _StaticBadgeChip('Suspend'),
-                _StaticBadgeChip('Minta revisi'),
+              children: [
+                FilledButton(
+                  onPressed: _loading ? null : () => _applyDecision('approve'),
+                  child: const Text('Approve & Aktifkan'),
+                ),
+                FilledButton.tonal(
+                  onPressed: _loading ? null : () => _applyDecision('revision'),
+                  child: const Text('Minta Revisi'),
+                ),
+                FilledButton.tonal(
+                  onPressed: _loading ? null : () => _applyDecision('reject'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFFFFE4E0),
+                    foregroundColor: const Color(0xFF9F4035),
+                  ),
+                  child: const Text('Reject'),
+                ),
+                FilledButton.tonal(
+                  onPressed: _loading ? null : () => _applyDecision('suspend'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFFEAEAEA),
+                    foregroundColor: const Color(0xFF182022),
+                  ),
+                  child: const Text('Suspend'),
+                ),
               ],
             ),
           ),
@@ -115,15 +292,62 @@ class AdminOwnerDetailPage extends StatelessWidget {
       ),
     );
   }
+
+  Future<void> _applyDecision(String decision) async {
+    setState(() => _loading = true);
+    try {
+      await FirestoreService.instance.reviewOwnerApplication(
+        owner: widget.owner,
+        decision: decision,
+        adminNotes: _notesController.text.trim(),
+      );
+      if (!mounted) {
+        return;
+      }
+      await _showLightDialog(
+        context,
+        title: 'Aksi berhasil',
+        message: 'Status owner berhasil diperbarui.',
+      );
+    } on FirebaseException catch (error) {
+      if (!mounted) {
+        return;
+      }
+      await _showLightDialog(
+        context,
+        title: 'Aksi gagal',
+        message: _firebaseMessage(error),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    }
+  }
 }
 
-class AdminListingDetailPage extends StatelessWidget {
+class AdminListingDetailPage extends StatefulWidget {
   const AdminListingDetailPage({super.key, required this.kos});
 
   final KosData kos;
 
   @override
+  State<AdminListingDetailPage> createState() => _AdminListingDetailPageState();
+}
+
+class _AdminListingDetailPageState extends State<AdminListingDetailPage> {
+  late String _listingStatus;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _listingStatus = widget.kos.listingStatus;
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final kos = widget.kos;
     final occupantCount = kos.totalRooms - kos.availableRooms;
     return Scaffold(
       appBar: AppBar(
@@ -136,7 +360,7 @@ class AdminListingDetailPage extends StatelessWidget {
           _AdminDetailHeader(
             title: kos.name,
             subtitle: '${kos.ownerName} | ${kos.area}',
-            badge: kos.availableRooms == 0 ? 'Penuh' : 'Aktif',
+            badge: kos.listingStatusLabel,
           ),
           const SizedBox(height: 16),
           _AdminSectionCard(
@@ -158,19 +382,46 @@ class AdminListingDetailPage extends StatelessWidget {
                   value: '${kos.availableRooms}',
                 ),
                 const SizedBox(height: 10),
-                _DetailRow(label: 'Approval', value: kos.approvalMode),
+                _DetailRow(label: 'Approval booking', value: kos.approvalMode),
               ],
             ),
           ),
           const SizedBox(height: 16),
           _AdminSectionCard(
             title: 'Moderasi Listing',
-            subtitle: 'Tindakan admin untuk kos aktif atau bermasalah.',
+            subtitle:
+                'Admin hanya moderasi listing, bukan pembayaran sewa kos.',
             child: Column(
-              children: const [
-                _StaticActionLine('Edit listing atau koreksi data'),
-                _StaticActionLine('Hide kos atau suspend sementara'),
-                _StaticActionLine('Tandai kos bermasalah atau hapus permanen'),
+              children: [
+                _SelectCard(
+                  label: 'Status listing',
+                  value: _listingStatus,
+                  items: const [
+                    'active',
+                    'pending_review',
+                    'needs_revision',
+                    'hidden',
+                    'suspended',
+                  ],
+                  onChanged: (value) => setState(() => _listingStatus = value),
+                ),
+                const SizedBox(height: 14),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: _saving ? null : _save,
+                    child: _saving
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text('Simpan Moderasi'),
+                  ),
+                ),
               ],
             ),
           ),
@@ -178,51 +429,135 @@ class AdminListingDetailPage extends StatelessWidget {
       ),
     );
   }
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    try {
+      await FirestoreService.instance.updateKosListingStatus(
+        kosId: widget.kos.id,
+        listingStatus: _listingStatus,
+      );
+      if (!mounted) {
+        return;
+      }
+      await _showLightDialog(
+        context,
+        title: 'Moderasi disimpan',
+        message: 'Status listing berhasil diperbarui.',
+      );
+    } on FirebaseException catch (error) {
+      if (!mounted) {
+        return;
+      }
+      await _showLightDialog(
+        context,
+        title: 'Gagal menyimpan',
+        message: _firebaseMessage(error),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _saving = false);
+      }
+    }
+  }
 }
 
-class AdminPaymentDetailPage extends StatelessWidget {
-  const AdminPaymentDetailPage({super.key, required this.booking});
+class AdminPaymentDetailPage extends StatefulWidget {
+  const AdminPaymentDetailPage({super.key, required this.owner});
 
-  final BookingData booking;
+  final AppUserData owner;
+
+  @override
+  State<AdminPaymentDetailPage> createState() => _AdminPaymentDetailPageState();
+}
+
+class _AdminPaymentDetailPageState extends State<AdminPaymentDetailPage> {
+  bool _loading = false;
 
   @override
   Widget build(BuildContext context) {
-    final appFee = (booking.totalPrice * 0.05).round();
+    final owner = widget.owner;
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.white,
-        title: const Text('Detail Pembayaran'),
+        title: const Text('Detail Pembayaran Aktivasi'),
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
         children: [
           _AdminDetailHeader(
-            title: booking.userName,
-            subtitle: '${booking.kos.name} | ${booking.paymentMethod}',
-            badge: booking.paymentStatus,
+            title: owner.name,
+            subtitle: '${owner.email} | ${owner.activationPaymentMethod}',
+            badge: owner.activationPaymentStatus,
           ),
           const SizedBox(height: 16),
           _AdminSectionCard(
-            title: 'Ringkasan Transaksi',
-            subtitle: 'Panel finance admin untuk approval dan reminder.',
+            title: 'Ringkasan Pembayaran',
+            subtitle: 'Panel finance admin untuk aktivasi akun owner.',
             child: Column(
               children: [
                 _DetailRow(
-                  label: 'Tanggal booking',
-                  value: _formatLongDate(booking.sortKey),
+                  label: 'Tanggal pengajuan',
+                  value: owner.ownerApplicationSubmittedAt == null
+                      ? '-'
+                      : _formatLongDate(owner.ownerApplicationSubmittedAt!),
                 ),
                 const SizedBox(height: 10),
-                _DetailRow(label: 'Nominal', value: booking.total),
+                _DetailRow(
+                  label: 'Biaya dasar',
+                  value: _currency(owner.ownerActivationFee),
+                ),
                 const SizedBox(height: 10),
-                _DetailRow(label: 'Fee aplikasi', value: _currency(appFee)),
+                _DetailRow(
+                  label: 'Diskon voucher',
+                  value: _currency(owner.ownerActivationDiscount),
+                ),
                 const SizedBox(height: 10),
-                _DetailRow(label: 'Status', value: booking.paymentStatus),
+                _DetailRow(
+                  label: 'Nominal dibayar',
+                  value: _currency(owner.ownerNetActivationFee),
+                ),
+                const SizedBox(height: 10),
+                _DetailRow(
+                  label: 'Status',
+                  value: owner.activationPaymentStatus,
+                ),
                 const SizedBox(height: 10),
                 _DetailRow(
                   label: 'Bukti transfer',
-                  value: booking.paymentProofUrl.isEmpty
+                  value: owner.activationPaymentProofUrl.isEmpty
                       ? 'Belum ada'
-                      : booking.paymentProofUrl,
+                      : owner.activationPaymentProofUrl,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          _AdminSectionCard(
+            title: 'Aksi Finance',
+            subtitle:
+                'Setelah pembayaran valid, admin bisa lanjut approve owner.',
+            child: Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                FilledButton(
+                  onPressed: _loading ? null : () => _setStatus('Lunas'),
+                  child: const Text('Tandai Lunas'),
+                ),
+                FilledButton.tonal(
+                  onPressed: _loading
+                      ? null
+                      : () => _setStatus('Menunggu Konfirmasi'),
+                  child: const Text('Masih Dicek'),
+                ),
+                FilledButton.tonal(
+                  onPressed: _loading ? null : () => _setStatus('Ditolak'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFFFFE4E0),
+                    foregroundColor: const Color(0xFF9F4035),
+                  ),
+                  child: const Text('Tolak Bukti'),
                 ),
               ],
             ),
@@ -230,6 +565,37 @@ class AdminPaymentDetailPage extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _setStatus(String status) async {
+    setState(() => _loading = true);
+    try {
+      await FirestoreService.instance.updateActivationPaymentStatus(
+        userId: widget.owner.id,
+        paymentStatus: status,
+      );
+      if (!mounted) {
+        return;
+      }
+      await _showLightDialog(
+        context,
+        title: 'Status diperbarui',
+        message: 'Pembayaran aktivasi owner berhasil diperbarui.',
+      );
+    } on FirebaseException catch (error) {
+      if (!mounted) {
+        return;
+      }
+      await _showLightDialog(
+        context,
+        title: 'Gagal memperbarui',
+        message: _firebaseMessage(error),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    }
   }
 }
 
@@ -238,34 +604,40 @@ class AdminReportsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<List<BookingData>>(
-      stream: FirestoreService.instance.allBookingsStream(),
+    return StreamBuilder<List<KosData>>(
+      stream: FirestoreService.instance.adminKosStream(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return _AdminAccessErrorPage(
             message: _streamErrorMessage(snapshot.error),
           );
         }
-        final reports = (snapshot.data ?? const <BookingData>[]).where((
-          booking,
-        ) {
-          return booking.note.isNotEmpty || booking.cancelReason.isNotEmpty;
+        final reports = (snapshot.data ?? const <KosData>[]).where((kos) {
+          return kos.listingStatus != 'active';
         }).toList();
 
         return Scaffold(
           appBar: AppBar(
             backgroundColor: Colors.white,
-            title: const Text('Moderasi Laporan'),
+            title: const Text('Moderasi Listing'),
           ),
           body: ListView.separated(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
             itemBuilder: (context, index) {
               final item = reports[index];
               return _AdminEntityTile(
-                title: item.userName,
-                subtitle: item.note.isNotEmpty ? item.note : item.cancelReason,
-                badge: item.cancelReason.isEmpty ? 'Diproses' : 'Selesai',
+                title: item.name,
+                subtitle: '${item.ownerName} | ${item.area}',
+                badge: item.listingStatusLabel,
                 icon: Icons.report_problem_rounded,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (_) => AdminListingDetailPage(kos: item),
+                    ),
+                  );
+                },
               );
             },
             separatorBuilder: (_, _) => const SizedBox(height: 12),
@@ -305,28 +677,33 @@ class AdminAnalyticsPage extends StatelessWidget {
                 child: Column(
                   children: [
                     _DetailRow(
-                      label: 'Growth user',
+                      label: 'Total pengguna',
                       value: '${data.totalUsers} akun',
                     ),
                     const SizedBox(height: 10),
                     _DetailRow(
-                      label: 'Growth owner',
+                      label: 'Pemilik aktif',
                       value: '${data.totalOwners} owner',
                     ),
                     const SizedBox(height: 10),
                     _DetailRow(
-                      label: 'Revenue',
+                      label: 'Revenue aplikasi',
                       value: _currency(data.platformRevenue),
                     ),
                     const SizedBox(height: 10),
                     _DetailRow(
-                      label: 'Booking hari ini',
-                      value: '${data.bookingsToday}',
+                      label: 'Pengajuan owner hari ini',
+                      value: '${data.ownerRequestsToday}',
                     ),
                     const SizedBox(height: 10),
                     _DetailRow(
-                      label: 'Kamar aktif terisi',
-                      value: '${data.activeRooms}',
+                      label: 'Pembayaran menunggu cek',
+                      value: '${data.pendingOwnerPayments}',
+                    ),
+                    const SizedBox(height: 10),
+                    _DetailRow(
+                      label: 'Listing perlu review',
+                      value: '${data.pendingListings}',
                     ),
                   ],
                 ),
@@ -347,54 +724,167 @@ class AdminCmsPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.white,
-        title: const Text('CMS Koshub'),
+        title: const Text('CMS Banner Home'),
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-        children: const [
-          _AdminSectionCard(
-            title: 'Konten Utama',
-            subtitle: 'Kelola materi yang tampil ke seluruh user.',
-            child: Column(
-              children: [
-                _StaticActionLine('Banner homepage'),
-                _StaticActionLine('Promo dan campaign'),
-                _StaticActionLine('Artikel tips kos'),
-                _StaticActionLine('FAQ dan notifikasi global'),
-              ],
-            ),
-          ),
-        ],
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _openBannerEditor(context),
+        backgroundColor: const Color(0xFF182022),
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.add_photo_alternate_rounded),
+        label: const Text('Tambah Banner'),
+      ),
+      body: StreamBuilder<List<HomeBannerData>>(
+        stream: FirestoreService.instance.homeBannersStream(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const _LoadingScreen(label: 'Memuat banner home...');
+          }
+          if (snapshot.hasError) {
+            return _AdminAccessErrorPage(
+              message: _streamErrorMessage(snapshot.error),
+            );
+          }
+          final items = snapshot.data ?? const <HomeBannerData>[];
+          if (items.isEmpty) {
+            return const Padding(
+              padding: EdgeInsets.all(20),
+              child: _EmptyStateCard(
+                title: 'Belum ada banner home',
+                subtitle:
+                    'Tambahkan banner hero atau promo agar homepage bisa dikelola admin.',
+              ),
+            );
+          }
+          return ListView.separated(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
+            itemBuilder: (context, index) {
+              final banner = items[index];
+              return Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(18),
+                      child: Image.network(
+                        banner.imageUrl,
+                        height: 160,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      banner.title,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      banner.subtitle,
+                      style: const TextStyle(color: Color(0xFF5D6B6B)),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        _StatusBadge(
+                          label:
+                              '${banner.placement} | ${banner.isActive ? 'Aktif' : 'Nonaktif'}',
+                        ),
+                        const Spacer(),
+                        TextButton(
+                          onPressed: () =>
+                              _openBannerEditor(context, existing: banner),
+                          child: const Text('Edit'),
+                        ),
+                        TextButton(
+                          onPressed: () async {
+                            await FirestoreService.instance.deleteHomeBanner(
+                              banner.id,
+                            );
+                          },
+                          child: const Text(
+                            'Hapus',
+                            style: TextStyle(color: Color(0xFF9F4035)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            },
+            separatorBuilder: (_, _) => const SizedBox(height: 12),
+            itemCount: items.length,
+          );
+        },
       ),
     );
   }
 }
 
-class AdminBroadcastPage extends StatelessWidget {
-  const AdminBroadcastPage({super.key});
+class AdminOwnerVoucherPage extends StatelessWidget {
+  const AdminOwnerVoucherPage({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.white,
-        title: const Text('Push Notification Center'),
+        title: const Text('Voucher Owner'),
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-        children: const [
-          _AdminSectionCard(
-            title: 'Broadcast',
-            subtitle: 'Pusat pengumuman untuk promo, maintenance, dan event.',
-            child: Column(
-              children: [
-                _StaticActionLine('Promo owner premium'),
-                _StaticActionLine('Maintenance aplikasi'),
-                _StaticActionLine('Event dan pengumuman umum'),
-              ],
-            ),
-          ),
-        ],
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _openVoucherEditor(context),
+        backgroundColor: const Color(0xFF182022),
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('Tambah Voucher'),
+      ),
+      body: StreamBuilder<List<OwnerVoucherData>>(
+        stream: FirestoreService.instance.ownerVouchersStream(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const _LoadingScreen(label: 'Memuat voucher owner...');
+          }
+          if (snapshot.hasError) {
+            return _AdminAccessErrorPage(
+              message: _streamErrorMessage(snapshot.error),
+            );
+          }
+          final items = snapshot.data ?? const <OwnerVoucherData>[];
+          if (items.isEmpty) {
+            return const Padding(
+              padding: EdgeInsets.all(20),
+              child: _EmptyStateCard(
+                title: 'Belum ada voucher owner',
+                subtitle:
+                    'Tambahkan voucher untuk memberi potongan harga aktivasi owner.',
+              ),
+            );
+          }
+          return ListView.separated(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
+            itemBuilder: (context, index) {
+              final voucher = items[index];
+              return _AdminEntityTile(
+                title: '${voucher.code} • ${voucher.title}',
+                subtitle:
+                    '${voucher.description} | Diskon ${_currency(voucher.discountAmount)}',
+                badge: voucher.isActive ? 'Aktif' : 'Nonaktif',
+                icon: Icons.local_offer_rounded,
+                onTap: () => _openVoucherEditor(context, existing: voucher),
+              );
+            },
+            separatorBuilder: (_, _) => const SizedBox(height: 12),
+            itemCount: items.length,
+          );
+        },
       ),
     );
   }
@@ -405,15 +895,15 @@ class AdminAuditLogPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<List<BookingData>>(
-      stream: FirestoreService.instance.allBookingsStream(),
+    return StreamBuilder<List<AppUserData>>(
+      stream: FirestoreService.instance.ownerUsersStream(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return _AdminAccessErrorPage(
             message: _streamErrorMessage(snapshot.error),
           );
         }
-        final items = snapshot.data ?? const <BookingData>[];
+        final items = snapshot.data ?? const <AppUserData>[];
         return Scaffold(
           appBar: AppBar(
             backgroundColor: Colors.white,
@@ -422,12 +912,13 @@ class AdminAuditLogPage extends StatelessWidget {
           body: ListView.separated(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
             itemBuilder: (context, index) {
-              final booking = items[index];
+              final owner = items[index];
+              final date = owner.ownerApplicationSubmittedAt ?? owner.createdAt;
               return _AdminEntityTile(
-                title: 'Booking ${booking.kos.name}',
+                title: owner.name,
                 subtitle:
-                    '${booking.userName} | ${booking.status} | ${booking.paymentStatus}',
-                badge: _formatLongDate(booking.sortKey),
+                    '${owner.activationPaymentStatus} | ${owner.verificationStatus} | ${owner.accountStatus}',
+                badge: _formatLongDate(date),
                 icon: Icons.history_rounded,
               );
             },
@@ -472,7 +963,8 @@ class AdminSettingsPage extends StatelessWidget {
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton.icon(
-                    onPressed: () async => FirebaseAuth.instance.signOut(),
+                    onPressed: () async =>
+                        _confirmAdminLogout(context, email: user?.email ?? ''),
                     icon: const Icon(Icons.logout_rounded),
                     label: Text('Logout ${user?.email ?? ''}'),
                     style: FilledButton.styleFrom(
@@ -488,4 +980,244 @@ class AdminSettingsPage extends StatelessWidget {
       ),
     );
   }
+}
+
+Future<void> _openBannerEditor(
+  BuildContext context, {
+  HomeBannerData? existing,
+}) async {
+  final titleController = TextEditingController(text: existing?.title ?? '');
+  final subtitleController = TextEditingController(
+    text: existing?.subtitle ?? '',
+  );
+  final imageController = TextEditingController(text: existing?.imageUrl ?? '');
+  var placement = existing?.placement ?? 'hero';
+  var isActive = existing?.isActive ?? true;
+
+  await showDialog<void>(
+    context: context,
+    builder: (context) {
+      return StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
+            title: Text(existing == null ? 'Tambah Banner' : 'Edit Banner'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _InputField(
+                    controller: titleController,
+                    label: 'Judul',
+                    hintText: 'Judul banner',
+                  ),
+                  const SizedBox(height: 12),
+                  _InputField(
+                    controller: subtitleController,
+                    label: 'Subjudul',
+                    hintText: 'Subjudul banner',
+                    maxLines: 2,
+                  ),
+                  const SizedBox(height: 12),
+                  _InputField(
+                    controller: imageController,
+                    label: 'URL gambar',
+                    hintText: 'Tempel URL gambar banner',
+                  ),
+                  const SizedBox(height: 12),
+                  _SelectCard(
+                    label: 'Placement',
+                    value: placement,
+                    items: const ['hero', 'promo'],
+                    onChanged: (value) => setState(() => placement = value),
+                  ),
+                  const SizedBox(height: 12),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    value: isActive,
+                    title: const Text('Aktifkan banner'),
+                    onChanged: (value) => setState(() => isActive = value),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Batal'),
+              ),
+              FilledButton(
+                onPressed: () async {
+                  if (titleController.text.trim().isEmpty ||
+                      imageController.text.trim().isEmpty) {
+                    await _showLightDialog(
+                      context,
+                      title: 'Data belum lengkap',
+                      message: 'Judul dan URL gambar banner wajib diisi.',
+                    );
+                    return;
+                  }
+                  try {
+                    await FirestoreService.instance.saveHomeBanner(
+                      bannerId: existing?.id,
+                      title: titleController.text.trim(),
+                      subtitle: subtitleController.text.trim(),
+                      imageUrl: imageController.text.trim(),
+                      placement: placement,
+                      isActive: isActive,
+                    );
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                    }
+                  } on FirebaseException catch (error) {
+                    if (!context.mounted) {
+                      return;
+                    }
+                    await _showLightDialog(
+                      context,
+                      title: 'Banner gagal disimpan',
+                      message: _firebaseMessage(error),
+                    );
+                  }
+                },
+                child: const Text('Simpan'),
+              ),
+            ],
+          );
+        },
+      );
+    },
+  );
+}
+
+Future<void> _openVoucherEditor(
+  BuildContext context, {
+  OwnerVoucherData? existing,
+}) async {
+  final codeController = TextEditingController(text: existing?.code ?? '');
+  final titleController = TextEditingController(text: existing?.title ?? '');
+  final descriptionController = TextEditingController(
+    text: existing?.description ?? '',
+  );
+  final discountController = TextEditingController(
+    text: existing == null ? '' : existing.discountAmount.toString(),
+  );
+  var isActive = existing?.isActive ?? true;
+
+  await showDialog<void>(
+    context: context,
+    builder: (context) {
+      return StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
+            title: Text(existing == null ? 'Tambah Voucher' : 'Edit Voucher'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _InputField(
+                    controller: codeController,
+                    label: 'Kode voucher',
+                    hintText: 'Contoh: OWNERHEMAT',
+                  ),
+                  const SizedBox(height: 12),
+                  _InputField(
+                    controller: titleController,
+                    label: 'Judul voucher',
+                    hintText: 'Contoh: Promo owner baru',
+                  ),
+                  const SizedBox(height: 12),
+                  _InputField(
+                    controller: descriptionController,
+                    label: 'Deskripsi',
+                    hintText: 'Jelaskan syarat atau tujuan voucher',
+                    maxLines: 2,
+                  ),
+                  const SizedBox(height: 12),
+                  _InputField(
+                    controller: discountController,
+                    label: 'Potongan harga',
+                    hintText: 'Contoh: 50000',
+                    keyboardType: TextInputType.number,
+                  ),
+                  const SizedBox(height: 12),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    value: isActive,
+                    title: const Text('Voucher aktif'),
+                    onChanged: (value) => setState(() => isActive = value),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              if (existing != null)
+                TextButton(
+                  onPressed: () async {
+                    await FirestoreService.instance.deleteOwnerVoucher(
+                      existing.id,
+                    );
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                    }
+                  },
+                  child: const Text(
+                    'Hapus',
+                    style: TextStyle(color: Color(0xFF9F4035)),
+                  ),
+                ),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Batal'),
+              ),
+              FilledButton(
+                onPressed: () async {
+                  if (codeController.text.trim().isEmpty ||
+                      titleController.text.trim().isEmpty ||
+                      discountController.text.trim().isEmpty) {
+                    await _showLightDialog(
+                      context,
+                      title: 'Data belum lengkap',
+                      message:
+                          'Kode voucher, judul, dan potongan harga wajib diisi.',
+                    );
+                    return;
+                  }
+                  try {
+                    await FirestoreService.instance.saveOwnerVoucher(
+                      voucherId: existing?.id,
+                      code: codeController.text.trim(),
+                      title: titleController.text.trim(),
+                      description: descriptionController.text.trim(),
+                      discountAmount:
+                          int.tryParse(discountController.text.trim()) ?? 0,
+                      isActive: isActive,
+                    );
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                    }
+                  } on FirebaseException catch (error) {
+                    if (!context.mounted) {
+                      return;
+                    }
+                    await _showLightDialog(
+                      context,
+                      title: 'Voucher gagal disimpan',
+                      message: _firebaseMessage(error),
+                    );
+                  }
+                },
+                child: const Text('Simpan'),
+              ),
+            ],
+          );
+        },
+      );
+    },
+  );
 }

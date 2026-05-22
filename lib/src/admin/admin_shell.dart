@@ -38,7 +38,7 @@ class _AdminShellState extends State<AdminShell> {
       _ShellDestination(label: 'Pemilik', icon: Icons.verified_user_rounded),
       _ShellDestination(label: 'Listing', icon: Icons.apartment_rounded),
       _ShellDestination(
-        label: 'Bayar',
+        label: 'Aktivasi',
         icon: Icons.account_balance_wallet_rounded,
       ),
       _ShellDestination(

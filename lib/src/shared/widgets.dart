@@ -64,10 +64,15 @@ class _EmptyStateCard extends StatelessWidget {
 }
 
 class _HomeHero extends StatefulWidget {
-  const _HomeHero({required this.onChanged, required this.onSubmitted});
+  const _HomeHero({
+    required this.onChanged,
+    required this.onSubmitted,
+    this.banner,
+  });
 
   final ValueChanged<String> onChanged;
   final ValueChanged<String> onSubmitted;
+  final HomeBannerData? banner;
 
   @override
   State<_HomeHero> createState() => _HomeHeroState();
@@ -92,6 +97,15 @@ class _HomeHeroState extends State<_HomeHero> {
 
   @override
   Widget build(BuildContext context) {
+    final imageUrl = widget.banner?.imageUrl.isNotEmpty == true
+        ? widget.banner!.imageUrl
+        : _sampleKosMap1['foto_urls'][1] as String;
+    final title = widget.banner?.title.trim().isNotEmpty == true
+        ? widget.banner!.title
+        : 'Cari kos impianmu\ndi sini!';
+    final subtitle = widget.banner?.subtitle.trim().isNotEmpty == true
+        ? widget.banner!.subtitle
+        : 'Cari lokasi atau nama kos yang cocok buat kamu.';
     return Container(
       height: 235,
       decoration: BoxDecoration(
@@ -102,10 +116,7 @@ class _HomeHeroState extends State<_HomeHero> {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          Image.network(
-            _sampleKosMap1['foto_urls'][1] as String,
-            fit: BoxFit.cover,
-          ),
+          Image.network(imageUrl, fit: BoxFit.cover),
           DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -125,10 +136,19 @@ class _HomeHeroState extends State<_HomeHero> {
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 Text(
-                  'Cari kos impianmu\ndi sini!',
+                  title,
                   style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                     fontWeight: FontWeight.w800,
                     color: const Color(0xFF073B3A),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    height: 1.35,
                   ),
                 ),
                 const SizedBox(height: 14),
@@ -432,10 +452,24 @@ class _KosCard extends StatelessWidget {
 }
 
 class _PromoBanner extends StatelessWidget {
-  const _PromoBanner();
+  const _PromoBanner({this.banner});
+
+  final HomeBannerData? banner;
 
   @override
   Widget build(BuildContext context) {
+    final imageUrl = banner?.imageUrl.isNotEmpty == true
+        ? banner!.imageUrl
+        : _sampleKosMap2['foto_urls'][1] as String;
+    final title = banner?.title.trim().isNotEmpty == true
+        ? banner!.title
+        : 'FLASH SALE';
+    final headline = banner?.subtitle.trim().isNotEmpty == true
+        ? banner!.subtitle
+        : 'Diskon Rp 200 ribu';
+    final description = banner == null
+        ? 'Untuk penghuni baru bulan ini'
+        : 'Promo bisa diatur admin dari CMS home banner.';
     return Container(
       height: 148,
       decoration: BoxDecoration(
@@ -449,12 +483,7 @@ class _PromoBanner extends StatelessWidget {
             child: Row(
               children: [
                 const Spacer(),
-                Expanded(
-                  child: Image.network(
-                    _sampleKosMap2['foto_urls'][1] as String,
-                    fit: BoxFit.cover,
-                  ),
-                ),
+                Expanded(child: Image.network(imageUrl, fit: BoxFit.cover)),
               ],
             ),
           ),
@@ -473,14 +502,14 @@ class _PromoBanner extends StatelessWidget {
               ),
             ),
           ),
-          const Padding(
+          Padding(
             padding: EdgeInsets.all(20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  'FLASH SALE',
+                  title,
                   style: TextStyle(
                     color: Color(0xFF752219),
                     fontSize: 12,
@@ -490,7 +519,7 @@ class _PromoBanner extends StatelessWidget {
                 ),
                 SizedBox(height: 6),
                 Text(
-                  'Diskon Rp 200 ribu',
+                  headline,
                   style: TextStyle(
                     color: Color(0xFF752219),
                     fontSize: 24,
@@ -499,7 +528,7 @@ class _PromoBanner extends StatelessWidget {
                 ),
                 SizedBox(height: 4),
                 Text(
-                  'Untuk penghuni baru bulan ini',
+                  description,
                   style: TextStyle(
                     color: Color(0xFF752219),
                     fontSize: 13,
@@ -1145,6 +1174,9 @@ class _StatusBadge extends StatelessWidget {
     if (label.contains('Menunggu')) {
       background = const Color(0xFFFFF5DD);
       foreground = const Color(0xFFB78103);
+    } else if (label.contains('Peringatan')) {
+      background = const Color(0xFFFFF5DD);
+      foreground = const Color(0xFFB78103);
     } else if (label.contains('Dibatalkan') ||
         label.contains('Overdue') ||
         label.contains('Telat')) {
@@ -1555,30 +1587,6 @@ class _StaticActionLine extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(child: Text(label)),
         ],
-      ),
-    );
-  }
-}
-
-class _StaticBadgeChip extends StatelessWidget {
-  const _StaticBadgeChip(this.label);
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFFEAF1FF),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          color: Color(0xFF35589F),
-          fontWeight: FontWeight.w800,
-        ),
       ),
     );
   }

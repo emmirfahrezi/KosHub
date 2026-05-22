@@ -16,14 +16,15 @@ class ProfilePage extends StatelessWidget {
         stream: FirestoreService.instance.userProfileStream(user.uid),
         builder: (context, snapshot) {
           final profile = snapshot.data;
-          final isOwner = profile?.role == 'pemilik';
+          final isOwner = profile?.canAccessOwnerShell == true;
+          final hasOwnerRequest = profile?.hasOwnerRequest == true;
           return ListView(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
             children: [
               _ProfileHeader(
                 name: profile?.name ?? user.displayName ?? 'Pengguna KosHub',
                 email: profile?.email ?? user.email ?? '-',
-                role: profile?.role ?? 'penyewa',
+                role: profile?.roleLabel ?? 'Penyewa',
               ),
               if (!isOwner) ...[
                 const SizedBox(height: 12),
@@ -64,6 +65,62 @@ class ProfilePage extends StatelessWidget {
                           },
                           icon: const Icon(Icons.edit_rounded),
                           label: const Text('Edit Profil'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              if (hasOwnerRequest && !isOwner) ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              'Pengajuan Pemilik Kos',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          _StatusBadge(
+                            label: profile?.verificationStatus ?? '-',
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      _SummaryRow(
+                        label: 'Status akun',
+                        value: profile?.accountStatus ?? '-',
+                      ),
+                      const SizedBox(height: 8),
+                      _SummaryRow(
+                        label: 'Status pembayaran',
+                        value: profile?.activationPaymentStatus ?? '-',
+                      ),
+                      const SizedBox(height: 8),
+                      _SummaryRow(
+                        label: 'Biaya aktivasi',
+                        value: _currency(profile?.ownerNetActivationFee ?? 0),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        profile?.adminNotes.trim().isNotEmpty == true
+                            ? profile!.adminNotes
+                            : 'Admin akan mengaktifkan akun owner setelah bukti pembayaran dan data listing kamu valid.',
+                        style: const TextStyle(
+                          color: Color(0xFF5D6B6B),
+                          height: 1.45,
                         ),
                       ),
                     ],
@@ -127,7 +184,9 @@ class ProfilePage extends StatelessWidget {
               const SizedBox(height: 12),
               if (isOwner)
                 StreamBuilder<KosData?>(
-                  stream: FirestoreService.instance.ownerKosStream(user.uid),
+                  stream: FirestoreService.instance.ownerManagedKosStream(
+                    user.uid,
+                  ),
                   builder: (context, ownerKosSnapshot) {
                     if (ownerKosSnapshot.connectionState ==
                         ConnectionState.waiting) {
@@ -165,6 +224,7 @@ class ProfilePage extends StatelessWidget {
                               MaterialPageRoute<void>(
                                 builder: (_) => OwnerRegistrationPage(
                                   existingKos: ownerKos,
+                                  profile: profile,
                                 ),
                               ),
                             );
@@ -190,22 +250,41 @@ class ProfilePage extends StatelessWidget {
                   },
                 )
               else
-                FilledButton.icon(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute<void>(
-                        builder: (_) => const OwnerRegistrationPage(),
+                StreamBuilder<KosData?>(
+                  stream: FirestoreService.instance.ownerManagedKosStream(
+                    user.uid,
+                  ),
+                  builder: (context, ownerKosSnapshot) {
+                    final ownerKos = ownerKosSnapshot.data;
+                    return FilledButton.icon(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute<void>(
+                            builder: (_) => OwnerRegistrationPage(
+                              existingKos: ownerKos,
+                              profile: profile,
+                            ),
+                          ),
+                        );
+                      },
+                      icon: Icon(
+                        hasOwnerRequest
+                            ? Icons.edit_note_rounded
+                            : Icons.store_mall_directory_rounded,
+                      ),
+                      label: Text(
+                        hasOwnerRequest
+                            ? 'Lanjutkan / Edit Pengajuan Owner'
+                            : 'Daftar Menjadi Pemilik Kos',
+                      ),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF006A6A),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
                       ),
                     );
                   },
-                  icon: const Icon(Icons.store_mall_directory_rounded),
-                  label: const Text('Daftar Menjadi Pemilik Kos'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF006A6A),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
                 ),
               Container(
                 margin: const EdgeInsets.only(top: 12),

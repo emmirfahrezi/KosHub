@@ -208,7 +208,7 @@ class KosDetailPage extends StatelessWidget {
             ? null
             : FirestoreService.instance.userProfileStream(currentUser.uid),
         builder: (context, snapshot) {
-          final isOwner = snapshot.data?.role == 'pemilik';
+          final isOwner = snapshot.data?.canAccessOwnerShell == true;
 
           return SafeArea(
             minimum: const EdgeInsets.fromLTRB(16, 0, 16, 16),
