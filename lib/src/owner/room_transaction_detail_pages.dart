@@ -78,7 +78,7 @@ class TransactionDetailPage extends StatelessWidget {
           children: [
             OutlinedButton(
               onPressed: () async {
-                final chatId = await FirestoreService.instance
+                final chatId = await SupabaseService.instance
                     .createOrGetOwnerChat(booking);
                 if (!context.mounted) {
                   return;
@@ -110,7 +110,7 @@ class TransactionDetailPage extends StatelessWidget {
                   ? null
                   : () async {
                       try {
-                        await FirestoreService.instance
+                        await SupabaseService.instance
                             .updateBookingPaymentStatus(
                               bookingId: booking.id,
                               paymentStatus: 'Lunas',
@@ -123,12 +123,12 @@ class TransactionDetailPage extends StatelessWidget {
                             content: Text('Pembayaran berhasil di-approve.'),
                           ),
                         );
-                      } on FirebaseException catch (error) {
+                      } on SupabaseAppException catch (error) {
                         if (!context.mounted) {
                           return;
                         }
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(_firebaseMessage(error))),
+                          SnackBar(content: Text(_supabaseMessage(error))),
                         );
                       }
                     },
@@ -268,7 +268,7 @@ class RoomDetailPage extends StatelessWidget {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text(
-                      'Mode nonaktifkan kamar bisa disambung ke backend berikutnya.',
+                      'Pengaturan ketersediaan kamar akan tersedia di pembaruan berikutnya.',
                     ),
                   ),
                 );

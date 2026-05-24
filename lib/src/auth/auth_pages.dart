@@ -233,13 +233,10 @@ class _AuthPageState extends State<AuthPage> {
                 child: const Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Catatan setup Firebase',
-                      style: TextStyle(fontWeight: FontWeight.w800),
-                    ),
+                    Text('Akun KosHub', style: TextStyle(fontWeight: FontWeight.w800)),
                     SizedBox(height: 8),
                     Text(
-                      'Akun baru akan dibuat ke Firebase Auth dan profil user disimpan ke Firestore koleksi users.',
+                      'Daftar sekali untuk mencari kos, menghubungi pemilik, dan mengelola booking dari satu tempat.',
                       style: TextStyle(color: Color(0xFF5D6B6B), height: 1.45),
                     ),
                   ],
@@ -274,21 +271,26 @@ class _AuthPageState extends State<AuthPage> {
     setState(() => _isLoading = true);
     try {
       if (_isLogin) {
-        final credential = await FirebaseAuth.instance
-            .signInWithEmailAndPassword(email: email, password: password);
-        await FirestoreService.instance.ensureUserProfile(
+        final credential = await SupabaseAuth.instance
+            .signInWithPassword(email: email, password: password);
+        await SupabaseService.instance.ensureUserProfile(
           credential.user!,
           fallbackName: credential.user!.displayName ?? email.split('@').first,
         );
       } else {
-        final credential = await FirebaseAuth.instance
-            .createUserWithEmailAndPassword(email: email, password: password);
-        await credential.user!.updateDisplayName(name);
-        await FirestoreService.instance.ensureUserProfile(
-          credential.user!,
-          fallbackName: name,
+        await SupabaseAuth.instance.signUpWithPassword(
+          email: email,
+          password: password,
+          displayName: name,
         );
-        await FirebaseAuth.instance.signOut();
+        final signedInUser = SupabaseAuth.instance.currentUser;
+        if (signedInUser != null) {
+          await SupabaseService.instance.ensureUserProfile(
+            signedInUser,
+            fallbackName: name,
+          );
+          await SupabaseAuth.instance.signOut();
+        }
         if (!mounted) {
           return;
         }
@@ -304,8 +306,10 @@ class _AuthPageState extends State<AuthPage> {
               'Selamat, akun anda sudah terdaftar. Silakan login untuk masuk ke aplikasi.',
         );
       }
-    } on FirebaseAuthException catch (error) {
+    } on SupabaseAuthException catch (error) {
       _showMessage(_authMessage(error));
+    } on supabase.PostgrestException catch (error) {
+      _showMessage(error.message);
     } catch (_) {
       _showMessage('Terjadi kendala saat memproses akun.');
     } finally {
@@ -315,7 +319,7 @@ class _AuthPageState extends State<AuthPage> {
     }
   }
 
-  String _authMessage(FirebaseAuthException error) {
+  String _authMessage(SupabaseAuthException error) {
     switch (error.code) {
       case 'user-not-found':
       case 'wrong-password':
@@ -470,13 +474,10 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
                 child: const Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Security baseline',
-                      style: TextStyle(fontWeight: FontWeight.w800),
-                    ),
+                    Text('Akses admin', style: TextStyle(fontWeight: FontWeight.w800)),
                     SizedBox(height: 8),
                     Text(
-                      'Panel admin dipisahkan dari login user biasa, cek role setelah autentikasi, dan bisa diperluas ke OTP, 2FA, session timeout, serta audit login.',
+                      'Gunakan akun admin yang sudah terdaftar untuk mengelola pengguna, listing kos, dan transaksi.',
                       style: TextStyle(color: Color(0xFF5D6B6B), height: 1.45),
                     ),
                   ],
@@ -500,17 +501,17 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
 
     setState(() => _isLoading = true);
     try {
-      await FirestoreService.instance.signInAdmin(
+      await SupabaseService.instance.signInAdmin(
         email: email,
         password: password,
       );
       if (mounted) {
         Navigator.pop(context);
       }
-    } on FirebaseAuthException catch (error) {
+    } on SupabaseAuthException catch (error) {
       _showMessage(error.message ?? 'Login admin gagal.');
-    } on FirebaseException catch (error) {
-      _showMessage(_firebaseMessage(error));
+    } on SupabaseAppException catch (error) {
+      _showMessage(_supabaseMessage(error));
     } catch (_) {
       _showMessage('Terjadi kendala saat memproses login admin.');
     } finally {

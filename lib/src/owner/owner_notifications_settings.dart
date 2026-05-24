@@ -129,7 +129,7 @@ class OwnerSettingsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser!;
+    final user = SupabaseAuth.instance.currentUser!;
 
     return Scaffold(
       appBar: AppBar(
@@ -137,11 +137,11 @@ class OwnerSettingsPage extends StatelessWidget {
         title: const Text('Pengaturan Akun'),
       ),
       body: StreamBuilder<AppUserData?>(
-        stream: FirestoreService.instance.userProfileStream(user.uid),
+        stream: SupabaseService.instance.userProfileStream(user.id),
         builder: (context, userSnapshot) {
           final profile = userSnapshot.data;
           return StreamBuilder<KosData?>(
-            stream: FirestoreService.instance.ownerKosStream(user.uid),
+            stream: SupabaseService.instance.ownerKosStream(user.id),
             builder: (context, kosSnapshot) {
               final kos = kosSnapshot.data;
               return ListView(
@@ -210,7 +210,7 @@ class OwnerSettingsPage extends StatelessWidget {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text(
-                            'Reset password bisa disambung ke Firebase Auth berikutnya.',
+                            'Gunakan menu profil untuk memperbarui data akun dan password.',
                           ),
                         ),
                       );
@@ -221,7 +221,7 @@ class OwnerSettingsPage extends StatelessWidget {
                     title: 'Logout Semua Device',
                     subtitle: 'Aksi keamanan untuk semua sesi login',
                     onTap: () async {
-                      await FirebaseAuth.instance.signOut();
+                      await SupabaseAuth.instance.signOut();
                     },
                   ),
                   _ProfileMenuTile(
@@ -253,7 +253,7 @@ class OwnerSettingsPage extends StatelessWidget {
                                   ),
                                   SizedBox(height: 8),
                                   Text(
-                                    'Riwayat login detail bisa disambung setelah backend audit disiapkan.',
+                                    'Riwayat login detail akan tersedia di pembaruan berikutnya.',
                                   ),
                                 ],
                               ),

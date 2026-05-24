@@ -35,7 +35,7 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
   @override
   void initState() {
     super.initState();
-    final user = FirebaseAuth.instance.currentUser;
+    final user = SupabaseAuth.instance.currentUser;
     final existingKos = widget.existingKos;
     _ownerNameController.text =
         existingKos?.ownerName ?? user?.displayName ?? '';
@@ -221,7 +221,7 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
             ),
             const SizedBox(height: 16),
             StreamBuilder<List<OwnerVoucherData>>(
-              stream: FirestoreService.instance.ownerVouchersStream(),
+              stream: SupabaseService.instance.ownerVouchersStream(),
               builder: (context, snapshot) {
                 final vouchers = (snapshot.data ?? const <OwnerVoucherData>[])
                     .where((item) => item.isActive)
@@ -425,9 +425,9 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
 
     setState(() => _saving = true);
     try {
-      final user = FirebaseAuth.instance.currentUser!;
+      final user = SupabaseAuth.instance.currentUser!;
       if (widget.existingKos == null) {
-        await FirestoreService.instance.registerOwnerKos(
+        await SupabaseService.instance.registerOwnerKos(
           user: user,
           ownerName: ownerName,
           kosName: kosName,
@@ -448,7 +448,7 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
           voucherCode: voucherCode,
         );
       } else {
-        await FirestoreService.instance.updateOwnerKos(
+        await SupabaseService.instance.updateOwnerKos(
           user: user,
           kosId: widget.existingKos!.id,
           ownerName: ownerName,
@@ -483,8 +483,8 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
         ),
       );
       Navigator.pop(context);
-    } on FirebaseException catch (error) {
-      _showMessage(_firebaseMessage(error));
+    } on SupabaseAppException catch (error) {
+      _showMessage(_supabaseMessage(error));
     } catch (_) {
       _showMessage('Pendaftaran pemilik gagal diproses. Coba lagi.');
     } finally {

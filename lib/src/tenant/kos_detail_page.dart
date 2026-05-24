@@ -8,8 +8,8 @@ class KosDetailPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final currentUser = FirebaseAuth.instance.currentUser;
-    final isOwnKos = currentUser?.uid == kos.ownerId;
+    final currentUser = SupabaseAuth.instance.currentUser;
+    final isOwnKos = currentUser?.id == kos.ownerId;
 
     return Scaffold(
       body: CustomScrollView(
@@ -189,7 +189,7 @@ class KosDetailPage extends StatelessWidget {
                             ),
                             SizedBox(height: 10),
                             Text(
-                              'Mini map siap diintegrasikan',
+                              'Lokasi kos akan ditampilkan di sini',
                               style: TextStyle(fontWeight: FontWeight.w700),
                             ),
                           ],
@@ -206,7 +206,7 @@ class KosDetailPage extends StatelessWidget {
       bottomSheet: StreamBuilder<AppUserData?>(
         stream: currentUser == null
             ? null
-            : FirestoreService.instance.userProfileStream(currentUser.uid),
+            : SupabaseService.instance.userProfileStream(currentUser.id),
         builder: (context, snapshot) {
           final isOwner = snapshot.data?.canAccessOwnerShell == true;
 
@@ -231,7 +231,7 @@ class KosDetailPage extends StatelessWidget {
                     child: OutlinedButton.icon(
                       onPressed: () async {
                         try {
-                          final chatId = await FirestoreService.instance
+                          final chatId = await SupabaseService.instance
                               .createOrGetChat(kos);
                           if (!context.mounted) {
                             return;
@@ -243,14 +243,14 @@ class KosDetailPage extends StatelessWidget {
                                   ChatDetailPage(kos: kos, chatId: chatId),
                             ),
                           );
-                        } on FirebaseException catch (error) {
+                        } on SupabaseAppException catch (error) {
                           if (!context.mounted) {
                             return;
                           }
                           _showLightDialog(
                             context,
                             title: 'Chat belum bisa dibuka',
-                            message: _firebaseMessage(error),
+                            message: _supabaseMessage(error),
                           );
                         } catch (_) {
                           if (!context.mounted) {

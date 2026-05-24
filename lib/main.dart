@@ -1,12 +1,8 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-
-import 'firebase_options.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 
 part 'src/auth/auth_pages.dart';
 part 'src/shell/main_shell.dart';
@@ -28,13 +24,20 @@ part 'src/owner/owner_notifications_settings.dart';
 part 'src/owner/owner_registration_page.dart';
 part 'src/profile/profile_pages.dart';
 part 'src/admin/admin_detail_pages.dart';
-part 'src/data/firestore_service.dart';
+part 'src/data/supabase_auth.dart';
+part 'src/data/supabase_service.dart';
 part 'src/data/models.dart';
 part 'src/shared/widgets.dart';
 part 'src/shared/helpers.dart';
 part 'src/data/sample_data.dart';
 
-const List<String> _adminSeedEmails = ['emmir.fahrezi1@gmail.com'];
+const List<String> _adminSeedEmails = [
+  'emmir.fahrezi1@gmail.com',
+  'faizkhairan6@gmail.com',
+];
+const String _supabaseUrl = 'https://qqcjuxabcikoiuwhuliv.supabase.co';
+const String _supabaseAnonKey =
+    'sb_publishable_CT6DVNOjIFXAns4Cmx3y9w_XaM9xQcK';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -49,26 +52,27 @@ class AppBootstrap extends StatefulWidget {
 }
 
 class _AppBootstrapState extends State<AppBootstrap> {
-  late final Future<FirebaseApp> _initialization;
+  late final Future<void> _initialization;
 
   @override
   void initState() {
     super.initState();
-    _initialization = Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
+    _initialization = supabase.Supabase.initialize(
+      url: _supabaseUrl,
+      anonKey: _supabaseAnonKey,
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<FirebaseApp>(
+    return FutureBuilder<void>(
       future: _initialization,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return MaterialApp(
             debugShowCheckedModeBanner: false,
             home: _LoadingScreen(
-              label: 'Firebase gagal dimuat. Coba periksa koneksi atau config.',
+              label: 'Supabase gagal dimuat. Coba periksa koneksi atau config.',
             ),
           );
         }
@@ -117,7 +121,7 @@ class AuthGate extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<User?>(
-      stream: FirebaseAuth.instance.authStateChanges(),
+      stream: SupabaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const _LoadingScreen(label: 'Menyiapkan sesi...');

@@ -12,10 +12,10 @@ class OwnerDashboardPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser!;
+    final user = SupabaseAuth.instance.currentUser!;
 
     return StreamBuilder<KosData?>(
-      stream: FirestoreService.instance.ownerKosStream(user.uid),
+      stream: SupabaseService.instance.ownerKosStream(user.id),
       builder: (context, kosSnapshot) {
         if (kosSnapshot.connectionState == ConnectionState.waiting) {
           return const _LoadingScreen(label: 'Menyiapkan dashboard pemilik...');
@@ -23,7 +23,7 @@ class OwnerDashboardPage extends StatelessWidget {
 
         final kos = kosSnapshot.data;
         return StreamBuilder<List<BookingData>>(
-          stream: FirestoreService.instance.ownerBookingsStream(user.uid),
+          stream: SupabaseService.instance.ownerBookingsStream(user.id),
           builder: (context, bookingsSnapshot) {
             if (bookingsSnapshot.connectionState == ConnectionState.waiting) {
               return const _LoadingScreen(label: 'Menghitung statistik kos...');

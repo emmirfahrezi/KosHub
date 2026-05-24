@@ -5,7 +5,7 @@ class ChatListPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser!;
+    final user = SupabaseAuth.instance.currentUser!;
 
     return Scaffold(
       appBar: AppBar(
@@ -13,7 +13,7 @@ class ChatListPage extends StatelessWidget {
         backgroundColor: Colors.white,
       ),
       body: StreamBuilder<List<ChatPreviewData>>(
-        stream: FirestoreService.instance.userChatsStream(user.uid),
+        stream: SupabaseService.instance.userChatsStream(user.id),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const _LoadingScreen(label: 'Memuat percakapan...');
@@ -35,7 +35,7 @@ class ChatListPage extends StatelessWidget {
               child: _EmptyStateCard(
                 title: 'Belum ada chat',
                 subtitle:
-                    'Buka detail kos lalu tekan tombol chat agar percakapan pertama dibuat di Firestore.',
+                    'Buka detail kos lalu tekan tombol chat untuk mulai menghubungi pemilik.',
               ),
             );
           }
@@ -46,8 +46,8 @@ class ChatListPage extends StatelessWidget {
             separatorBuilder: (_, _) => const SizedBox(height: 12),
             itemBuilder: (context, index) {
               final chat = chats[index];
-              final displayName = chat.displayNameFor(user.uid);
-              final displayPhoto = chat.displayPhotoFor(user.uid);
+              final displayName = chat.displayNameFor(user.id);
+              final displayPhoto = chat.displayPhotoFor(user.id);
               return InkWell(
                 onTap: () {
                   Navigator.push(
@@ -151,14 +151,14 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    final currentUserId = FirebaseAuth.instance.currentUser!.uid;
+    final currentUserId = SupabaseAuth.instance.currentUser!.id;
     final isOwner = currentUserId == widget.kos.ownerId;
 
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.white,
         title: StreamBuilder<ChatPreviewData?>(
-          stream: FirestoreService.instance.chatPreviewStream(
+          stream: SupabaseService.instance.chatPreviewStream(
             chatId: widget.chatId,
             fallbackKos: widget.kos,
           ),
@@ -247,7 +247,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
           ),
           Expanded(
             child: StreamBuilder<List<ChatMessageData>>(
-              stream: FirestoreService.instance.messagesStream(widget.chatId),
+              stream: SupabaseService.instance.messagesStream(widget.chatId),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const _LoadingScreen(label: 'Memuat pesan...');
@@ -380,18 +380,18 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
 
     setState(() => _sending = true);
     try {
-      await FirestoreService.instance.sendMessage(
+      await SupabaseService.instance.sendMessage(
         chatId: widget.chatId,
         text: text,
         kos: widget.kos,
       );
       _controller.clear();
-    } on FirebaseException catch (error) {
+    } on SupabaseAppException catch (error) {
       if (mounted) {
         _showLightDialog(
           context,
           title: 'Pesan belum terkirim',
-          message: _firebaseMessage(error),
+          message: _supabaseMessage(error),
         );
       }
     } catch (_) {

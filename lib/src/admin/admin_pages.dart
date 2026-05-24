@@ -21,7 +21,7 @@ class AdminDashboardPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<AdminDashboardData>(
-      stream: FirestoreService.instance.adminDashboardStream(),
+      stream: SupabaseService.instance.adminDashboardStream(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const _LoadingScreen(label: 'Memuat dashboard admin...');
@@ -149,7 +149,7 @@ class AdminDashboardPage extends StatelessWidget {
                   _AdminSectionCard(
                     title: 'Quick Control',
                     subtitle:
-                        'Admin fokus ke pengguna, aktivasi owner, listing, CMS home, dan voucher.',
+                        'Kelola pengguna, aktivasi pemilik, listing kos, banner, dan voucher.',
                     child: Wrap(
                       spacing: 10,
                       runSpacing: 10,
@@ -269,7 +269,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<AppUserData>>(
-      stream: FirestoreService.instance.allUsersStream(),
+      stream: SupabaseService.instance.allUsersStream(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const _LoadingScreen(label: 'Memuat pengguna...');
@@ -355,7 +355,7 @@ class _AdminOwnersPageState extends State<AdminOwnersPage> {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<AppUserData>>(
-      stream: FirestoreService.instance.ownerUsersStream(),
+      stream: SupabaseService.instance.ownerUsersStream(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const _LoadingScreen(label: 'Memuat data pemilik...');
@@ -452,7 +452,7 @@ class AdminListingsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<KosData>>(
-      stream: FirestoreService.instance.adminKosStream(),
+      stream: SupabaseService.instance.adminKosStream(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const _LoadingScreen(label: 'Memuat listing kos...');
@@ -511,7 +511,7 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage> {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<AppUserData>>(
-      stream: FirestoreService.instance.ownerUsersStream(),
+      stream: SupabaseService.instance.ownerUsersStream(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const _LoadingScreen(

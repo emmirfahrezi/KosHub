@@ -469,7 +469,7 @@ class _PromoBanner extends StatelessWidget {
         : 'Diskon Rp 200 ribu';
     final description = banner == null
         ? 'Untuk penghuni baru bulan ini'
-        : 'Promo bisa diatur admin dari CMS home banner.';
+        : 'Promo khusus untuk penghuni baru.';
     return Container(
       height: 148,
       decoration: BoxDecoration(

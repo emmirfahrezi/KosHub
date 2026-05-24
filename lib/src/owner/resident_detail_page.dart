@@ -137,7 +137,7 @@ class ResidentDetailPage extends StatelessWidget {
             children: [
               OutlinedButton.icon(
                 onPressed: () async {
-                  final chatId = await FirestoreService.instance
+                  final chatId = await SupabaseService.instance
                       .createOrGetOwnerChat(booking);
                   if (!context.mounted) {
                     return;
@@ -243,7 +243,7 @@ class ResidentDetailPage extends StatelessWidget {
     }
 
     try {
-      await FirestoreService.instance.addOwnerNote(
+      await SupabaseService.instance.addOwnerNote(
         bookingId: booking.id,
         note: note,
       );
@@ -253,13 +253,13 @@ class ResidentDetailPage extends StatelessWidget {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Catatan owner disimpan.')));
-    } on FirebaseException catch (error) {
+    } on SupabaseAppException catch (error) {
       if (!context.mounted) {
         return;
       }
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(_firebaseMessage(error))));
+      ).showSnackBar(SnackBar(content: Text(_supabaseMessage(error))));
     }
   }
 
@@ -299,7 +299,7 @@ class ResidentDetailPage extends StatelessWidget {
     }
 
     try {
-      await FirestoreService.instance.extendBooking(
+      await SupabaseService.instance.extendBooking(
         booking: booking,
         additionalMonths: selected,
       );
@@ -309,19 +309,19 @@ class ResidentDetailPage extends StatelessWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Sewa diperpanjang $selected bulan.')),
       );
-    } on FirebaseException catch (error) {
+    } on SupabaseAppException catch (error) {
       if (!context.mounted) {
         return;
       }
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(_firebaseMessage(error))));
+      ).showSnackBar(SnackBar(content: Text(_supabaseMessage(error))));
     }
   }
 
   Future<void> _finishResident(BuildContext context) async {
     try {
-      await FirestoreService.instance.updateBookingStatus(
+      await SupabaseService.instance.updateBookingStatus(
         booking: booking,
         status: 'Selesai',
       );
@@ -331,13 +331,13 @@ class ResidentDetailPage extends StatelessWidget {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Penghuni dikeluarkan.')));
-    } on FirebaseException catch (error) {
+    } on SupabaseAppException catch (error) {
       if (!context.mounted) {
         return;
       }
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(_firebaseMessage(error))));
+      ).showSnackBar(SnackBar(content: Text(_supabaseMessage(error))));
     }
   }
 }

@@ -33,7 +33,7 @@ class _OwnerResidentsPageState extends State<OwnerResidentsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser!;
+    final user = SupabaseAuth.instance.currentUser!;
 
     return DefaultTabController(
       length: 4,
@@ -53,7 +53,7 @@ class _OwnerResidentsPageState extends State<OwnerResidentsPage> {
           ),
         ),
         body: StreamBuilder<List<BookingData>>(
-          stream: FirestoreService.instance.ownerBookingsStream(user.uid),
+          stream: SupabaseService.instance.ownerBookingsStream(user.id),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const _LoadingScreen(label: 'Memuat data penghuni...');
@@ -293,7 +293,7 @@ class _OwnerResidentsPageState extends State<OwnerResidentsPage> {
     String paymentStatus,
   ) async {
     try {
-      await FirestoreService.instance.updateBookingPaymentStatus(
+      await SupabaseService.instance.updateBookingPaymentStatus(
         bookingId: booking.id,
         paymentStatus: paymentStatus,
       );
@@ -303,19 +303,19 @@ class _OwnerResidentsPageState extends State<OwnerResidentsPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Status pembayaran diubah ke $paymentStatus.')),
       );
-    } on FirebaseException catch (error) {
+    } on SupabaseAppException catch (error) {
       if (!mounted) {
         return;
       }
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(_firebaseMessage(error))));
+      ).showSnackBar(SnackBar(content: Text(_supabaseMessage(error))));
     }
   }
 
   Future<void> _finishResident(BookingData booking) async {
     try {
-      await FirestoreService.instance.updateBookingStatus(
+      await SupabaseService.instance.updateBookingStatus(
         booking: booking,
         status: 'Selesai',
       );
@@ -325,13 +325,13 @@ class _OwnerResidentsPageState extends State<OwnerResidentsPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Penghuni dipindahkan ke riwayat.')),
       );
-    } on FirebaseException catch (error) {
+    } on SupabaseAppException catch (error) {
       if (!mounted) {
         return;
       }
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(_firebaseMessage(error))));
+      ).showSnackBar(SnackBar(content: Text(_supabaseMessage(error))));
     }
   }
 

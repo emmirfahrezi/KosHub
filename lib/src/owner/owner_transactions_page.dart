@@ -37,7 +37,7 @@ class _OwnerTransactionsPageState extends State<OwnerTransactionsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser!;
+    final user = SupabaseAuth.instance.currentUser!;
 
     return Scaffold(
       appBar: AppBar(
@@ -45,7 +45,7 @@ class _OwnerTransactionsPageState extends State<OwnerTransactionsPage> {
         title: const Text('Riwayat Transaksi'),
       ),
       body: StreamBuilder<List<BookingData>>(
-        stream: FirestoreService.instance.ownerBookingsStream(user.uid),
+        stream: SupabaseService.instance.ownerBookingsStream(user.id),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const _LoadingScreen(label: 'Memuat transaksi...');

@@ -275,7 +275,7 @@ class _BookingFormPageState extends State<BookingFormPage> {
 
     setState(() => _saving = true);
     try {
-      await FirestoreService.instance.createBooking(
+      await SupabaseService.instance.createBooking(
         kos: widget.kos,
         durationLabel: _selectedDuration,
         paymentMethod: _selectedPayment,
@@ -300,14 +300,14 @@ class _BookingFormPageState extends State<BookingFormPage> {
         return;
       }
       Navigator.pop(context);
-    } on FirebaseException catch (error) {
+    } on SupabaseAppException catch (error) {
       if (!mounted) {
         return;
       }
       _showLightDialog(
         context,
         title: 'Booking belum berhasil',
-        message: _firebaseMessage(error),
+        message: _supabaseMessage(error),
       );
     } catch (_) {
       if (!mounted) {
@@ -348,7 +348,7 @@ class BookingHistoryPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser!;
+    final user = SupabaseAuth.instance.currentUser!;
 
     return Scaffold(
       appBar: AppBar(
@@ -356,7 +356,7 @@ class BookingHistoryPage extends StatelessWidget {
         backgroundColor: Colors.white,
       ),
       body: StreamBuilder<List<BookingData>>(
-        stream: FirestoreService.instance.userBookingsStream(user.uid),
+        stream: SupabaseService.instance.userBookingsStream(user.id),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const _LoadingScreen(label: 'Memuat booking...');
@@ -378,7 +378,7 @@ class BookingHistoryPage extends StatelessWidget {
               child: _EmptyStateCard(
                 title: 'Belum ada booking',
                 subtitle:
-                    'Saat kamu melakukan booking dari detail kos, data akan masuk ke Firestore dan muncul di sini.',
+                    'Booking yang kamu buat dari detail kos akan muncul di sini.',
               ),
             );
           }
@@ -607,7 +607,7 @@ class BookingDetailPage extends StatelessWidget {
             OutlinedButton(
               onPressed: () async {
                 try {
-                  final chatId = await FirestoreService.instance
+                  final chatId = await SupabaseService.instance
                       .createOrGetChat(booking.kos);
                   if (!context.mounted) {
                     return;
@@ -619,14 +619,14 @@ class BookingDetailPage extends StatelessWidget {
                           ChatDetailPage(kos: booking.kos, chatId: chatId),
                     ),
                   );
-                } on FirebaseException catch (error) {
+                } on SupabaseAppException catch (error) {
                   if (!context.mounted) {
                     return;
                   }
                   _showLightDialog(
                     context,
                     title: 'Chat belum bisa dibuka',
-                    message: _firebaseMessage(error),
+                    message: _supabaseMessage(error),
                   );
                 }
               },

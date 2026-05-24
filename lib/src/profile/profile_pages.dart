@@ -5,7 +5,7 @@ class ProfilePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser!;
+    final user = SupabaseAuth.instance.currentUser!;
 
     return Scaffold(
       appBar: AppBar(
@@ -13,7 +13,7 @@ class ProfilePage extends StatelessWidget {
         backgroundColor: Colors.white,
       ),
       body: StreamBuilder<AppUserData?>(
-        stream: FirestoreService.instance.userProfileStream(user.uid),
+        stream: SupabaseService.instance.userProfileStream(user.id),
         builder: (context, snapshot) {
           final profile = snapshot.data;
           final isOwner = profile?.canAccessOwnerShell == true;
@@ -171,7 +171,7 @@ class ProfilePage extends StatelessWidget {
               _ProfileMenuTile(
                 icon: Icons.chat_bubble_outline_rounded,
                 title: 'Chat Aktif',
-                subtitle: 'Semua percakapan realtime tersimpan di Firestore',
+                subtitle: 'Lihat dan lanjutkan percakapan dengan pemilik kos',
                 onTap: () {
                   Navigator.push(
                     context,
@@ -184,8 +184,8 @@ class ProfilePage extends StatelessWidget {
               const SizedBox(height: 12),
               if (isOwner)
                 StreamBuilder<KosData?>(
-                  stream: FirestoreService.instance.ownerManagedKosStream(
-                    user.uid,
+                  stream: SupabaseService.instance.ownerManagedKosStream(
+                    user.id,
                   ),
                   builder: (context, ownerKosSnapshot) {
                     if (ownerKosSnapshot.connectionState ==
@@ -251,8 +251,8 @@ class ProfilePage extends StatelessWidget {
                 )
               else
                 StreamBuilder<KosData?>(
-                  stream: FirestoreService.instance.ownerManagedKosStream(
-                    user.uid,
+                  stream: SupabaseService.instance.ownerManagedKosStream(
+                    user.id,
                   ),
                   builder: (context, ownerKosSnapshot) {
                     final ownerKos = ownerKosSnapshot.data;
@@ -290,7 +290,7 @@ class ProfilePage extends StatelessWidget {
                 margin: const EdgeInsets.only(top: 12),
                 child: FilledButton.icon(
                   onPressed: () async {
-                    await FirebaseAuth.instance.signOut();
+                    await SupabaseAuth.instance.signOut();
                   },
                   icon: const Icon(Icons.logout_rounded),
                   label: const Text('Keluar'),
@@ -328,7 +328,7 @@ class _TenantProfileEditPageState extends State<TenantProfileEditPage> {
   @override
   void initState() {
     super.initState();
-    final user = FirebaseAuth.instance.currentUser;
+    final user = SupabaseAuth.instance.currentUser;
     _nameController = TextEditingController(
       text: widget.profile?.name ?? user?.displayName ?? '',
     );
@@ -429,7 +429,7 @@ class _TenantProfileEditPageState extends State<TenantProfileEditPage> {
   }
 
   Future<void> _save() async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = SupabaseAuth.instance.currentUser;
     if (user == null) {
       _showLightDialog(
         context,
@@ -452,7 +452,7 @@ class _TenantProfileEditPageState extends State<TenantProfileEditPage> {
 
     setState(() => _saving = true);
     try {
-      await FirestoreService.instance.updateTenantProfile(
+      await SupabaseService.instance.updateTenantProfile(
         user: user,
         name: name,
         phoneNumber: phone,
@@ -473,7 +473,7 @@ class _TenantProfileEditPageState extends State<TenantProfileEditPage> {
         return;
       }
       Navigator.pop(context);
-    } on FirebaseAuthException catch (error) {
+    } on SupabaseAuthException catch (error) {
       if (!mounted) {
         return;
       }
@@ -482,14 +482,14 @@ class _TenantProfileEditPageState extends State<TenantProfileEditPage> {
         title: 'Password belum bisa diubah',
         message: error.message ?? 'Silakan login ulang lalu coba lagi.',
       );
-    } on FirebaseException catch (error) {
+    } on SupabaseAppException catch (error) {
       if (!mounted) {
         return;
       }
       _showLightDialog(
         context,
         title: 'Profil gagal disimpan',
-        message: _firebaseMessage(error),
+        message: _supabaseMessage(error),
       );
     } finally {
       if (mounted) {

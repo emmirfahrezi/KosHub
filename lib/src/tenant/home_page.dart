@@ -47,7 +47,7 @@ class _HomePageState extends State<HomePage> {
         ],
       ),
       body: StreamBuilder<List<HomeBannerData>>(
-        stream: FirestoreService.instance.homeBannersStream(),
+        stream: SupabaseService.instance.homeBannersStream(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const _LoadingScreen(label: 'Memuat tampilan beranda...');
@@ -73,7 +73,7 @@ class _HomePageState extends State<HomePage> {
           final promoBanner = promoItems.isEmpty ? null : promoItems.first;
 
           return StreamBuilder<List<KosData>>(
-            stream: FirestoreService.instance.kosStream(),
+            stream: SupabaseService.instance.kosStream(),
             builder: (context, kosSnapshot) {
               if (kosSnapshot.connectionState == ConnectionState.waiting) {
                 return const _LoadingScreen(label: 'Memuat data kos...');
@@ -138,7 +138,7 @@ class _HomePageState extends State<HomePage> {
                       if (filtered.isEmpty)
                         _EmptyStateCard(
                           title: items.isEmpty
-                              ? 'Belum ada data kos di Firestore'
+                              ? 'Belum ada kos yang aktif'
                               : 'Tidak ada hasil yang cocok',
                           subtitle: items.isEmpty
                               ? 'Tekan "Seed Data Demo" untuk membuat contoh data kos, pemilik, dan chat awal.'
@@ -190,7 +190,7 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _seedDemoData() async {
     try {
-      await FirestoreService.instance.seedSampleData();
+      await SupabaseService.instance.seedSampleData();
       if (mounted) {
         _showLightDialog(
           context,
@@ -198,12 +198,12 @@ class _HomePageState extends State<HomePage> {
           message: 'Contoh data kos berhasil dimuat ke aplikasi.',
         );
       }
-    } on FirebaseException catch (error) {
+    } on SupabaseAppException catch (error) {
       if (mounted) {
         _showLightDialog(
           context,
           title: 'Data demo gagal dimuat',
-          message: _firebaseMessage(error),
+          message: _supabaseMessage(error),
         );
       }
     } catch (_) {

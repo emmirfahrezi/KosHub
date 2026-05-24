@@ -13,27 +13,27 @@ String _currency(int amount) {
   return 'Rp $buffer';
 }
 
-String _firebaseMessage(FirebaseException error) {
+String _supabaseMessage(SupabaseAppException error) {
   switch (error.code) {
     case 'permission-denied':
       return error.message ??
-          'Akses Firestore ditolak. Deploy/update rules Firestore dulu.';
+          'Akses ditolak. Pastikan akun anda punya izin untuk tindakan ini.';
     case 'unavailable':
-      return 'Firestore belum bisa dihubungi. Periksa koneksi internet.';
+      return 'Supabase belum bisa dihubungi. Periksa koneksi internet.';
     case 'not-found':
       return 'Data terkait tidak ditemukan. Muat ulang lalu coba lagi.';
     case 'unauthenticated':
       return 'Sesi login tidak valid. Silakan masuk ulang.';
     default:
-      return error.message ?? 'Firebase gagal memproses permintaan.';
+      return error.message ?? 'Supabase gagal memproses permintaan.';
   }
 }
 
 String _streamErrorMessage(Object? error) {
-  if (error is FirebaseException) {
-    return _firebaseMessage(error);
+  if (error is SupabaseAppException) {
+    return _supabaseMessage(error);
   }
-  return 'Terjadi kendala saat mengambil data admin. Cek rules Firestore dan koneksi.';
+  return 'Terjadi kendala saat mengambil data. Periksa koneksi lalu coba lagi.';
 }
 
 Future<void> _confirmCancelBooking(
@@ -68,7 +68,7 @@ Future<void> _confirmCancelBooking(
   }
 
   try {
-    await FirestoreService.instance.cancelBookingByTenant(booking);
+    await SupabaseService.instance.cancelBookingByTenant(booking);
     if (!context.mounted) {
       return;
     }
@@ -81,14 +81,14 @@ Future<void> _confirmCancelBooking(
       return;
     }
     Navigator.pop(context);
-  } on FirebaseException catch (error) {
+  } on SupabaseAppException catch (error) {
     if (!context.mounted) {
       return;
     }
     _showLightDialog(
       context,
       title: 'Pembatalan gagal',
-      message: _firebaseMessage(error),
+      message: _supabaseMessage(error),
     );
   }
 }
@@ -148,7 +148,7 @@ Future<void> _confirmAdminLogout(
   }
 
   try {
-    await FirebaseAuth.instance.signOut();
+    await SupabaseAuth.instance.signOut();
     if (!context.mounted) {
       return;
     }
@@ -181,7 +181,7 @@ Future<void> _confirmAdminLogout(
         );
       },
     );
-  } on FirebaseAuthException catch (error) {
+  } on SupabaseAuthException catch (error) {
     if (!context.mounted) {
       return;
     }
@@ -263,7 +263,21 @@ DateTime _parseStoredDate(
   String? fallbackLabel,
   DateTime? fallback,
 }) {
-  if (value is Timestamp) {
+  final parsedValue = _parseNullableStoredDate(value);
+  if (parsedValue != null) {
+    return parsedValue;
+  }
+  if (fallbackLabel != null && fallbackLabel.isNotEmpty) {
+    final parsed = _parseIndonesianDate(fallbackLabel);
+    if (parsed != null) {
+      return parsed;
+    }
+  }
+  return fallback ?? DateTime.now();
+}
+
+DateTime? _parseNullableStoredDate(Object? value) {
+  if (value is StoredTimestamp) {
     return value.toDate();
   }
   if (value is DateTime) {
@@ -275,13 +289,7 @@ DateTime _parseStoredDate(
       return parsed;
     }
   }
-  if (fallbackLabel != null && fallbackLabel.isNotEmpty) {
-    final parsed = _parseIndonesianDate(fallbackLabel);
-    if (parsed != null) {
-      return parsed;
-    }
-  }
-  return fallback ?? DateTime.now();
+  return null;
 }
 
 DateTime? _parseIndonesianDate(String label) {
@@ -380,7 +388,7 @@ extension _DemoKosOwner on Map<String, dynamic> {
       'owner_photo': ownerPhoto,
       'approval_mode': this['approval_mode'] ?? 'Manual Approval',
       'total_rooms': this['total_rooms'] ?? this['available_rooms'] ?? 0,
-      'updated_at': FieldValue.serverTimestamp(),
+      'updated_at': DatabaseValue.serverTimestamp(),
     };
   }
 }

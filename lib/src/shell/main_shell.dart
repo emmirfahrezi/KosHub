@@ -12,10 +12,10 @@ class _MainShellState extends State<MainShell> {
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser!;
+    final user = SupabaseAuth.instance.currentUser!;
 
     return StreamBuilder<AppUserData?>(
-      stream: FirestoreService.instance.userProfileStream(user.uid),
+      stream: SupabaseService.instance.userProfileStream(user.id),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const _LoadingScreen(label: 'Menyiapkan tampilan akun...');

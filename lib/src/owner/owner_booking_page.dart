@@ -33,7 +33,7 @@ class _OwnerBookingPageState extends State<OwnerBookingPage> {
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser!;
+    final user = SupabaseAuth.instance.currentUser!;
 
     return DefaultTabController(
       length: 4,
@@ -53,7 +53,7 @@ class _OwnerBookingPageState extends State<OwnerBookingPage> {
           ),
         ),
         body: StreamBuilder<List<BookingData>>(
-          stream: FirestoreService.instance.ownerBookingsStream(user.uid),
+          stream: SupabaseService.instance.ownerBookingsStream(user.id),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const _LoadingScreen(label: 'Memuat booking owner...');
@@ -337,7 +337,7 @@ class _OwnerBookingPageState extends State<OwnerBookingPage> {
 
   Future<void> _openChat(BookingData booking) async {
     try {
-      final chatId = await FirestoreService.instance.createOrGetOwnerChat(
+      final chatId = await SupabaseService.instance.createOrGetOwnerChat(
         booking,
       );
       if (!mounted) {
@@ -349,19 +349,19 @@ class _OwnerBookingPageState extends State<OwnerBookingPage> {
           builder: (_) => ChatDetailPage(kos: booking.kos, chatId: chatId),
         ),
       );
-    } on FirebaseException catch (error) {
+    } on SupabaseAppException catch (error) {
       if (!mounted) {
         return;
       }
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(_firebaseMessage(error))));
+      ).showSnackBar(SnackBar(content: Text(_supabaseMessage(error))));
     }
   }
 
   Future<void> _updateBookingStatus(BookingData booking, String status) async {
     try {
-      await FirestoreService.instance.updateBookingStatus(
+      await SupabaseService.instance.updateBookingStatus(
         booking: booking,
         status: status,
       );
@@ -371,13 +371,13 @@ class _OwnerBookingPageState extends State<OwnerBookingPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Status booking diubah menjadi $status.')),
       );
-    } on FirebaseException catch (error) {
+    } on SupabaseAppException catch (error) {
       if (!mounted) {
         return;
       }
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(_firebaseMessage(error))));
+      ).showSnackBar(SnackBar(content: Text(_supabaseMessage(error))));
     }
   }
 
@@ -421,7 +421,7 @@ class _OwnerBookingPageState extends State<OwnerBookingPage> {
     }
 
     try {
-      await FirestoreService.instance.updateBookingStatus(
+      await SupabaseService.instance.updateBookingStatus(
         booking: booking,
         status: 'Dibatalkan',
         cancelReason: reason,
@@ -432,13 +432,13 @@ class _OwnerBookingPageState extends State<OwnerBookingPage> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Booking dibatalkan: $reason')));
-    } on FirebaseException catch (error) {
+    } on SupabaseAppException catch (error) {
       if (!mounted) {
         return;
       }
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(_firebaseMessage(error))));
+      ).showSnackBar(SnackBar(content: Text(_supabaseMessage(error))));
     }
   }
 }

@@ -215,7 +215,7 @@ class AppUserData {
       loginActivity:
           map['login_activity'] as String? ?? 'Belum ada login tercatat',
       createdAt:
-          (map['created_at'] as Timestamp?)?.toDate() ??
+          _parseNullableStoredDate(map['created_at']) ??
           DateTime.fromMillisecondsSinceEpoch(0),
       isActive: map['is_active'] as bool? ?? true,
       requestedRole: map['requested_role'] as String? ?? '',
@@ -231,8 +231,9 @@ class AppUserData {
       ownerActivationDiscount:
           (map['owner_activation_discount'] as num?)?.toInt() ?? 0,
       ownerVoucherCode: map['owner_voucher_code'] as String? ?? '',
-      ownerApplicationSubmittedAt:
-          (map['owner_application_submitted_at'] as Timestamp?)?.toDate(),
+      ownerApplicationSubmittedAt: _parseNullableStoredDate(
+        map['owner_application_submitted_at'],
+      ),
       adminNotes: map['admin_notes'] as String? ?? '',
     );
   }
@@ -466,7 +467,7 @@ class ChatPreviewData {
     required KosData kos,
   }) {
     final timestamp =
-        (data['last_message_time'] as Timestamp?)?.toDate() ??
+        _parseNullableStoredDate(data['last_message_time']) ??
         DateTime.fromMillisecondsSinceEpoch(0);
     return ChatPreviewData(
       id: id,
@@ -501,7 +502,7 @@ class ChatMessageData {
 
   factory ChatMessageData.fromMap(String id, Map<String, dynamic> map) {
     final timestamp =
-        (map['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now();
+        _parseNullableStoredDate(map['timestamp']) ?? DateTime.now();
     return ChatMessageData(
       id: id,
       senderId: map['sender_id'] as String? ?? '',
@@ -606,7 +607,7 @@ class BookingData {
     required KosData kos,
   }) {
     final timestamp =
-        (map['created_at'] as Timestamp?)?.toDate() ??
+        _parseNullableStoredDate(map['created_at']) ??
         DateTime.fromMillisecondsSinceEpoch(0);
     final startDateValue = _parseStoredDate(
       map['start_date'],
@@ -646,7 +647,7 @@ class BookingData {
       total: _currency((map['total_price'] as num?)?.toInt() ?? 0),
       totalPrice: (map['total_price'] as num?)?.toInt() ?? 0,
       sortKey: timestamp,
-      paymentUpdatedAt: (map['payment_updated_at'] as Timestamp?)?.toDate(),
+      paymentUpdatedAt: _parseNullableStoredDate(map['payment_updated_at']),
       ownerNotes: (map['owner_notes'] as List<dynamic>? ?? const [])
           .map((item) => item.toString())
           .toList(),
@@ -682,7 +683,7 @@ class OwnerVoucherData {
       discountAmount: (map['discount_amount'] as num?)?.toInt() ?? 0,
       isActive: map['is_active'] as bool? ?? true,
       createdAt:
-          (map['created_at'] as Timestamp?)?.toDate() ??
+          _parseNullableStoredDate(map['created_at']) ??
           DateTime.fromMillisecondsSinceEpoch(0),
     );
   }
@@ -716,7 +717,7 @@ class HomeBannerData {
       placement: map['placement'] as String? ?? 'hero',
       isActive: map['is_active'] as bool? ?? true,
       createdAt:
-          (map['created_at'] as Timestamp?)?.toDate() ??
+          _parseNullableStoredDate(map['created_at']) ??
           DateTime.fromMillisecondsSinceEpoch(0),
     );
   }

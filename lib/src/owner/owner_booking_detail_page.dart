@@ -107,7 +107,7 @@ class OwnerBookingDetailPage extends StatelessWidget {
     final actions = <Widget>[
       OutlinedButton.icon(
         onPressed: () async {
-          final chatId = await FirestoreService.instance.createOrGetOwnerChat(
+          final chatId = await SupabaseService.instance.createOrGetOwnerChat(
             booking,
           );
           if (!context.mounted) {
@@ -166,7 +166,7 @@ class OwnerBookingDetailPage extends StatelessWidget {
 
   Future<void> _updateBookingStatus(BuildContext context, String status) async {
     try {
-      await FirestoreService.instance.updateBookingStatus(
+      await SupabaseService.instance.updateBookingStatus(
         booking: booking,
         status: status,
       );
@@ -176,13 +176,13 @@ class OwnerBookingDetailPage extends StatelessWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Status booking diubah menjadi $status.')),
       );
-    } on FirebaseException catch (error) {
+    } on SupabaseAppException catch (error) {
       if (!context.mounted) {
         return;
       }
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(_firebaseMessage(error))));
+      ).showSnackBar(SnackBar(content: Text(_supabaseMessage(error))));
     }
   }
 
@@ -222,7 +222,7 @@ class OwnerBookingDetailPage extends StatelessWidget {
     }
 
     try {
-      await FirestoreService.instance.updateBookingStatus(
+      await SupabaseService.instance.updateBookingStatus(
         booking: booking,
         status: 'Dibatalkan',
         cancelReason: reason,
@@ -233,13 +233,13 @@ class OwnerBookingDetailPage extends StatelessWidget {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Booking dibatalkan: $reason')));
-    } on FirebaseException catch (error) {
+    } on SupabaseAppException catch (error) {
       if (!context.mounted) {
         return;
       }
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(_firebaseMessage(error))));
+      ).showSnackBar(SnackBar(content: Text(_supabaseMessage(error))));
     }
   }
 }

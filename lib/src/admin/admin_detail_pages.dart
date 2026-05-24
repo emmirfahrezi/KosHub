@@ -118,7 +118,7 @@ class _AdminUserDetailPageState extends State<AdminUserDetailPage> {
   Future<void> _save() async {
     setState(() => _saving = true);
     try {
-      await FirestoreService.instance.updateUserModerationStatus(
+      await SupabaseService.instance.updateUserModerationStatus(
         user: widget.user,
         accountStatus: _accountStatus,
         adminNotes: _notesController.text.trim(),
@@ -131,14 +131,14 @@ class _AdminUserDetailPageState extends State<AdminUserDetailPage> {
         title: 'Perubahan disimpan',
         message: 'Status moderasi pengguna berhasil diperbarui.',
       );
-    } on FirebaseException catch (error) {
+    } on SupabaseAppException catch (error) {
       if (!mounted) {
         return;
       }
       await _showLightDialog(
         context,
         title: 'Gagal menyimpan',
-        message: _firebaseMessage(error),
+        message: _supabaseMessage(error),
       );
     } finally {
       if (mounted) {
@@ -296,7 +296,7 @@ class _AdminOwnerDetailPageState extends State<AdminOwnerDetailPage> {
   Future<void> _applyDecision(String decision) async {
     setState(() => _loading = true);
     try {
-      await FirestoreService.instance.reviewOwnerApplication(
+      await SupabaseService.instance.reviewOwnerApplication(
         owner: widget.owner,
         decision: decision,
         adminNotes: _notesController.text.trim(),
@@ -309,14 +309,14 @@ class _AdminOwnerDetailPageState extends State<AdminOwnerDetailPage> {
         title: 'Aksi berhasil',
         message: 'Status owner berhasil diperbarui.',
       );
-    } on FirebaseException catch (error) {
+    } on SupabaseAppException catch (error) {
       if (!mounted) {
         return;
       }
       await _showLightDialog(
         context,
         title: 'Aksi gagal',
-        message: _firebaseMessage(error),
+        message: _supabaseMessage(error),
       );
     } finally {
       if (mounted) {
@@ -433,7 +433,7 @@ class _AdminListingDetailPageState extends State<AdminListingDetailPage> {
   Future<void> _save() async {
     setState(() => _saving = true);
     try {
-      await FirestoreService.instance.updateKosListingStatus(
+      await SupabaseService.instance.updateKosListingStatus(
         kosId: widget.kos.id,
         listingStatus: _listingStatus,
       );
@@ -445,14 +445,14 @@ class _AdminListingDetailPageState extends State<AdminListingDetailPage> {
         title: 'Moderasi disimpan',
         message: 'Status listing berhasil diperbarui.',
       );
-    } on FirebaseException catch (error) {
+    } on SupabaseAppException catch (error) {
       if (!mounted) {
         return;
       }
       await _showLightDialog(
         context,
         title: 'Gagal menyimpan',
-        message: _firebaseMessage(error),
+        message: _supabaseMessage(error),
       );
     } finally {
       if (mounted) {
@@ -570,7 +570,7 @@ class _AdminPaymentDetailPageState extends State<AdminPaymentDetailPage> {
   Future<void> _setStatus(String status) async {
     setState(() => _loading = true);
     try {
-      await FirestoreService.instance.updateActivationPaymentStatus(
+      await SupabaseService.instance.updateActivationPaymentStatus(
         userId: widget.owner.id,
         paymentStatus: status,
       );
@@ -582,14 +582,14 @@ class _AdminPaymentDetailPageState extends State<AdminPaymentDetailPage> {
         title: 'Status diperbarui',
         message: 'Pembayaran aktivasi owner berhasil diperbarui.',
       );
-    } on FirebaseException catch (error) {
+    } on SupabaseAppException catch (error) {
       if (!mounted) {
         return;
       }
       await _showLightDialog(
         context,
         title: 'Gagal memperbarui',
-        message: _firebaseMessage(error),
+        message: _supabaseMessage(error),
       );
     } finally {
       if (mounted) {
@@ -605,7 +605,7 @@ class AdminReportsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<KosData>>(
-      stream: FirestoreService.instance.adminKosStream(),
+      stream: SupabaseService.instance.adminKosStream(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return _AdminAccessErrorPage(
@@ -655,7 +655,7 @@ class AdminAnalyticsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<AdminDashboardData>(
-      stream: FirestoreService.instance.adminDashboardStream(),
+      stream: SupabaseService.instance.adminDashboardStream(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return _AdminAccessErrorPage(
@@ -734,7 +734,7 @@ class AdminCmsPage extends StatelessWidget {
         label: const Text('Tambah Banner'),
       ),
       body: StreamBuilder<List<HomeBannerData>>(
-        stream: FirestoreService.instance.homeBannersStream(),
+        stream: SupabaseService.instance.homeBannersStream(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const _LoadingScreen(label: 'Memuat banner home...');
@@ -805,7 +805,7 @@ class AdminCmsPage extends StatelessWidget {
                         ),
                         TextButton(
                           onPressed: () async {
-                            await FirestoreService.instance.deleteHomeBanner(
+                            await SupabaseService.instance.deleteHomeBanner(
                               banner.id,
                             );
                           },
@@ -847,7 +847,7 @@ class AdminOwnerVoucherPage extends StatelessWidget {
         label: const Text('Tambah Voucher'),
       ),
       body: StreamBuilder<List<OwnerVoucherData>>(
-        stream: FirestoreService.instance.ownerVouchersStream(),
+        stream: SupabaseService.instance.ownerVouchersStream(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const _LoadingScreen(label: 'Memuat voucher owner...');
@@ -896,7 +896,7 @@ class AdminAuditLogPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<AppUserData>>(
-      stream: FirestoreService.instance.ownerUsersStream(),
+      stream: SupabaseService.instance.ownerUsersStream(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return _AdminAccessErrorPage(
@@ -936,7 +936,7 @@ class AdminSettingsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = SupabaseAuth.instance.currentUser;
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.white,
@@ -951,7 +951,7 @@ class AdminSettingsPage extends StatelessWidget {
             child: Column(
               children: [
                 const _StaticActionLine(
-                  'Password disimpan terenkripsi di Firebase Auth',
+                  'Password akun terlindungi dan tidak dapat dilihat admin.',
                 ),
                 const _StaticActionLine(
                   'Role gating untuk area admin aplikasi',
@@ -1060,7 +1060,7 @@ Future<void> _openBannerEditor(
                     return;
                   }
                   try {
-                    await FirestoreService.instance.saveHomeBanner(
+                    await SupabaseService.instance.saveHomeBanner(
                       bannerId: existing?.id,
                       title: titleController.text.trim(),
                       subtitle: subtitleController.text.trim(),
@@ -1071,14 +1071,14 @@ Future<void> _openBannerEditor(
                     if (context.mounted) {
                       Navigator.pop(context);
                     }
-                  } on FirebaseException catch (error) {
+                  } on SupabaseAppException catch (error) {
                     if (!context.mounted) {
                       return;
                     }
                     await _showLightDialog(
                       context,
                       title: 'Banner gagal disimpan',
-                      message: _firebaseMessage(error),
+                      message: _supabaseMessage(error),
                     );
                   }
                 },
@@ -1159,7 +1159,7 @@ Future<void> _openVoucherEditor(
               if (existing != null)
                 TextButton(
                   onPressed: () async {
-                    await FirestoreService.instance.deleteOwnerVoucher(
+                    await SupabaseService.instance.deleteOwnerVoucher(
                       existing.id,
                     );
                     if (context.mounted) {
@@ -1189,7 +1189,7 @@ Future<void> _openVoucherEditor(
                     return;
                   }
                   try {
-                    await FirestoreService.instance.saveOwnerVoucher(
+                    await SupabaseService.instance.saveOwnerVoucher(
                       voucherId: existing?.id,
                       code: codeController.text.trim(),
                       title: titleController.text.trim(),
@@ -1201,14 +1201,14 @@ Future<void> _openVoucherEditor(
                     if (context.mounted) {
                       Navigator.pop(context);
                     }
-                  } on FirebaseException catch (error) {
+                  } on SupabaseAppException catch (error) {
                     if (!context.mounted) {
                       return;
                     }
                     await _showLightDialog(
                       context,
                       title: 'Voucher gagal disimpan',
-                      message: _firebaseMessage(error),
+                      message: _supabaseMessage(error),
                     );
                   }
                 },

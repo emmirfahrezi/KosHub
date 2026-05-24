@@ -1,17 +1,24 @@
-# aplikasikoshub
+# KosHub
 
-A new Flutter project.
+KosHub adalah aplikasi Flutter untuk pencarian kos, chat, booking, dashboard pemilik, dan dashboard admin.
 
-## Getting Started
+## Backend
 
-This project is a starting point for a Flutter application.
+Project ini memakai Supabase untuk:
 
-A few resources to get you started if this is your first Flutter project:
+- Auth email/password
+- Database Postgres
+- Realtime stream
+- Row Level Security
+- RPC booking kamar
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+Schema backend ada di `supabase/schema.sql`. Jalankan SQL tersebut di Supabase SQL Editor untuk menyiapkan tabel, policy, trigger, dan function yang dipakai aplikasi.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Menjalankan
+
+```bash
+flutter pub get
+flutter run
+```
+
+Konfigurasi Supabase ada di `lib/main.dart` melalui `_supabaseUrl` dan `_supabaseAnonKey`.
