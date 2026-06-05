@@ -654,6 +654,17 @@ class _SelectCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final normalizedItems = <String>[];
+    final trimmedValue = value.trim();
+    if (trimmedValue.isNotEmpty) {
+      normalizedItems.add(trimmedValue);
+    }
+    for (final item in items) {
+      if (!normalizedItems.contains(item)) {
+        normalizedItems.add(item);
+      }
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       decoration: BoxDecoration(
@@ -661,9 +672,9 @@ class _SelectCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
       ),
       child: DropdownButtonFormField<String>(
-        initialValue: value,
+        initialValue: trimmedValue.isEmpty ? null : trimmedValue,
         decoration: InputDecoration(labelText: label, border: InputBorder.none),
-        items: items
+        items: normalizedItems
             .map(
               (item) =>
                   DropdownMenuItem<String>(value: item, child: Text(item)),
@@ -767,24 +778,39 @@ class _DashboardShortcutChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(20),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: const Color(0xFFEAF5F5),
-          borderRadius: BorderRadius.circular(18),
+          color: const Color(0xFFF4F8F8),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFFE0EBEB)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 18, color: const Color(0xFF006A6A)),
+            Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE6F4F4),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, size: 16, color: const Color(0xFF006A6A)),
+            ),
             const SizedBox(width: 8),
             Text(
               label,
               style: const TextStyle(
-                color: Color(0xFF006A6A),
+                color: Color(0xFF182022),
                 fontWeight: FontWeight.w800,
               ),
+            ),
+            const SizedBox(width: 8),
+            const Icon(
+              Icons.arrow_outward_rounded,
+              size: 16,
+              color: Color(0xFF7B8A8A),
             ),
           ],
         ),
@@ -798,57 +824,95 @@ class _OwnerMetricCard extends StatelessWidget {
     required this.title,
     required this.value,
     required this.subtitle,
+    required this.icon,
+    required this.accentColor,
     this.onTap,
   });
 
   final String title;
   final String value;
   final String subtitle;
+  final IconData icon;
+  final Color accentColor;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 162,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(22),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(22),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  color: Color(0xFF5D6B6B),
-                  fontWeight: FontWeight.w700,
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(24),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: const Color(0xFFE8EEEE)),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x0F182022),
+              blurRadius: 14,
+              offset: Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: accentColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(icon, color: accentColor, size: 20),
                 ),
+                const Spacer(),
+                if (onTap != null)
+                  const Icon(
+                    Icons.arrow_outward_rounded,
+                    size: 18,
+                    color: Color(0xFF7B8A8A),
+                  ),
+              ],
+            ),
+            const Spacer(),
+            Text(
+              title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Color(0xFF5D6B6B),
+                fontWeight: FontWeight.w700,
               ),
-              const SizedBox(height: 10),
-              Text(
+            ),
+            const SizedBox(height: 10),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
                 value,
                 style: const TextStyle(
                   color: Color(0xFF182022),
-                  fontSize: 20,
+                  fontSize: 24,
                   fontWeight: FontWeight.w900,
                 ),
               ),
-              const SizedBox(height: 6),
-              Text(
-                subtitle,
-                style: const TextStyle(
-                  color: Color(0xFF5D6B6B),
-                  fontSize: 12,
-                  height: 1.4,
-                ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              subtitle,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Color(0xFF5D6B6B),
+                fontSize: 12,
+                height: 1.4,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
