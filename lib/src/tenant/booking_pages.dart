@@ -10,12 +10,15 @@ class BookingFormPage extends StatefulWidget {
 }
 
 class _BookingFormPageState extends State<BookingFormPage> {
+  final _picker = ImagePicker();
   late final TextEditingController _startDateController;
   final _phoneController = TextEditingController();
   final _emergencyController = TextEditingController();
   final _roomController = TextEditingController(text: 'Kamar 01');
   final _noteController = TextEditingController();
   final _proofController = TextEditingController();
+  Uint8List? _selectedProofBytes;
+  String? _selectedProofName;
   String _selectedDuration = '6 bulan';
   String _selectedPayment = 'Transfer Bank';
   late DateTime _selectedStartDate;
@@ -49,7 +52,7 @@ class _BookingFormPageState extends State<BookingFormPage> {
         backgroundColor: Colors.white,
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
         children: [
           Container(
             padding: const EdgeInsets.all(14),
@@ -151,11 +154,14 @@ class _BookingFormPageState extends State<BookingFormPage> {
             maxLines: 3,
           ),
           const SizedBox(height: 16),
-          _InputField(
-            controller: _proofController,
-            label: 'URL bukti pembayaran DP',
-            hintText: 'Tempel link bukti transfer DP',
-            keyboardType: TextInputType.url,
+          _UploadImageCard(
+            label: 'Bukti pembayaran DP',
+            hint:
+                'Upload bukti transfer DP dari galeri agar booking bisa diproses.',
+            imageUrl: _proofController.text.trim(),
+            imageBytes: _selectedProofBytes,
+            fileName: _selectedProofName,
+            onPick: _pickProofImage,
           ),
           const SizedBox(height: 20),
           Container(
@@ -217,40 +223,61 @@ class _BookingFormPageState extends State<BookingFormPage> {
               ],
             ),
           ),
-        ],
-      ),
-      bottomSheet: SafeArea(
-        minimum: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        child: FilledButton(
-          onPressed: _saving ? null : _createBooking,
-          style: FilledButton.styleFrom(
-            backgroundColor: const Color(0xFF006A6A),
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: _saving ? null : _createBooking,
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF006A6A),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 18),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              ),
+              child: _saving
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text('Konfirmasi Booking'),
             ),
           ),
-          child: _saving
-              ? const SizedBox(
-                  height: 20,
-                  width: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
-                  ),
-                )
-              : const Text('Konfirmasi Booking'),
-        ),
+        ],
       ),
     );
+  }
+
+  Future<void> _pickProofImage() async {
+    final file = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 88,
+    );
+    if (file == null) {
+      return;
+    }
+
+    final bytes = await file.readAsBytes();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _selectedProofBytes = bytes;
+      _selectedProofName = file.name;
+    });
   }
 
   Future<void> _createBooking() async {
     final phone = _phoneController.text.trim();
     final emergency = _emergencyController.text.trim();
     final roomLabel = _roomController.text.trim();
-    final proof = _proofController.text.trim();
+    var proof = _proofController.text.trim();
+    final hasProof = _selectedProofBytes != null || proof.isNotEmpty;
 
     if (widget.kos.availableRooms <= 0) {
       _showLightDialog(
@@ -260,10 +287,7 @@ class _BookingFormPageState extends State<BookingFormPage> {
       );
       return;
     }
-    if (phone.isEmpty ||
-        emergency.isEmpty ||
-        roomLabel.isEmpty ||
-        proof.isEmpty) {
+    if (phone.isEmpty || emergency.isEmpty || roomLabel.isEmpty || !hasProof) {
       _showLightDialog(
         context,
         title: 'Data belum lengkap',
@@ -275,6 +299,16 @@ class _BookingFormPageState extends State<BookingFormPage> {
 
     setState(() => _saving = true);
     try {
+      final user = SupabaseAuth.instance.currentUser!;
+      if (_selectedProofBytes != null && _selectedProofName != null) {
+        proof = await SupabaseService.instance.uploadPublicImage(
+          user: user,
+          bytes: _selectedProofBytes!,
+          fileName: _selectedProofName!,
+          folder: 'booking-proofs',
+        );
+        _proofController.text = proof;
+      }
       await SupabaseService.instance.createBooking(
         kos: widget.kos,
         durationLabel: _selectedDuration,
@@ -556,13 +590,16 @@ class BookingDetailPage extends StatelessWidget {
                   label: 'Catatan penyewa',
                   value: booking.note.isEmpty ? '-' : booking.note,
                 ),
-                const SizedBox(height: 6),
-                _SummaryRow(
-                  label: 'Bukti DP',
-                  value: booking.paymentProofUrl.isEmpty
-                      ? 'Belum ada'
-                      : booking.paymentProofUrl,
-                ),
+                if (booking.paymentProofUrl.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  _ImageProofPreview(
+                    title: 'Bukti DP',
+                    imageUrl: booking.paymentProofUrl,
+                  ),
+                ] else ...[
+                  const SizedBox(height: 6),
+                  const _SummaryRow(label: 'Bukti DP', value: 'Belum ada'),
+                ],
                 if (booking.cancelReason.isNotEmpty) ...[
                   const SizedBox(height: 6),
                   _SummaryRow(
@@ -581,7 +618,7 @@ class BookingDetailPage extends StatelessWidget {
                             (note) => Padding(
                               padding: const EdgeInsets.only(bottom: 8),
                               child: Text(
-                                'ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ $note',
+                                '- $note',
                                 style: const TextStyle(
                                   color: Color(0xFF5D6B6B),
                                   height: 1.45,
@@ -600,57 +637,76 @@ class BookingDetailPage extends StatelessWidget {
       ),
       bottomSheet: SafeArea(
         minimum: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        child: Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            OutlinedButton(
-              onPressed: () async {
-                try {
-                  final chatId = await SupabaseService.instance
-                      .createOrGetChat(booking.kos);
-                  if (!context.mounted) {
-                    return;
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.97),
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x14000000),
+                blurRadius: 16,
+                offset: Offset(0, -4),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _ActionBarButton(
+                label: 'Chat Pemilik',
+                icon: Icons.chat_bubble_outline_rounded,
+                onPressed: () async {
+                  try {
+                    final chatId = await SupabaseService.instance
+                        .createOrGetChat(booking.kos);
+                    if (!context.mounted) {
+                      return;
+                    }
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) =>
+                            ChatDetailPage(kos: booking.kos, chatId: chatId),
+                      ),
+                    );
+                  } on SupabaseAppException catch (error) {
+                    if (!context.mounted) {
+                      return;
+                    }
+                    _showLightDialog(
+                      context,
+                      title: 'Chat belum bisa dibuka',
+                      message: _supabaseMessage(error),
+                    );
                   }
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute<void>(
-                      builder: (_) =>
-                          ChatDetailPage(kos: booking.kos, chatId: chatId),
-                    ),
-                  );
-                } on SupabaseAppException catch (error) {
-                  if (!context.mounted) {
-                    return;
-                  }
-                  _showLightDialog(
-                    context,
-                    title: 'Chat belum bisa dibuka',
-                    message: _supabaseMessage(error),
-                  );
-                }
-              },
-              child: const Text('Chat Pemilik'),
-            ),
-            OutlinedButton(
-              onPressed: booking.paymentProofUrl.isEmpty
-                  ? null
-                  : () {
-                      _showLightDialog(
-                        context,
-                        title: 'Bukti Pembayaran',
-                        message: booking.paymentProofUrl,
-                      );
-                    },
-              child: const Text('Lihat Bukti'),
-            ),
-            FilledButton(
-              onPressed: booking.status == 'Menunggu Konfirmasi'
-                  ? () => _confirmCancelBooking(context, booking)
-                  : null,
-              child: const Text('Batalkan Booking'),
-            ),
-          ],
+                },
+              ),
+              const SizedBox(height: 10),
+              _ActionBarButton(
+                label: 'Lihat Bukti',
+                icon: Icons.photo_library_outlined,
+                onPressed: booking.paymentProofUrl.isEmpty
+                    ? null
+                    : () {
+                        _showImagePreviewDialog(
+                          context,
+                          title: 'Bukti Pembayaran',
+                          imageUrl: booking.paymentProofUrl,
+                        );
+                      },
+              ),
+              const SizedBox(height: 10),
+              _ActionBarButton(
+                label: 'Batalkan Booking',
+                icon: Icons.cancel_outlined,
+                variant: _ActionBarButtonVariant.filled,
+                onPressed: booking.status == 'Menunggu Konfirmasi'
+                    ? () => _confirmCancelBooking(context, booking)
+                    : null,
+              ),
+            ],
+          ),
         ),
       ),
     );

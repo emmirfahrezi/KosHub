@@ -83,7 +83,7 @@ class OwnerNotificationsPage extends StatelessWidget {
           if (kos != null)
             _OwnerSectionCard(
               title: 'Kos aktif',
-              subtitle: '${kos!.name} ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ ${kos!.area}',
+              subtitle: '${kos!.name} - ${kos!.area}',
               child: const Text(
                 'Semua notifikasi di bawah akan mengarahkan kamu ke halaman yang terkait.',
               ),
@@ -221,7 +221,12 @@ class OwnerSettingsPage extends StatelessWidget {
                     title: 'Logout Semua Device',
                     subtitle: 'Aksi keamanan untuk semua sesi login',
                     onTap: () async {
-                      await SupabaseAuth.instance.signOut();
+                      await _confirmUserLogout(
+                        context,
+                        title: 'Logout semua device?',
+                        message:
+                            'Semua sesi owner akan diakhiri dan kamu akan diarahkan ke halaman login.',
+                      );
                     },
                   ),
                   _ProfileMenuTile(
@@ -248,9 +253,7 @@ class OwnerSettingsPage extends StatelessWidget {
                                     ),
                                   ),
                                   SizedBox(height: 12),
-                                  Text(
-                                    'Hari ini ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Perangkat aktif saat ini',
-                                  ),
+                                  Text('Hari ini - Perangkat aktif saat ini'),
                                   SizedBox(height: 8),
                                   Text(
                                     'Riwayat login detail akan tersedia di pembaruan berikutnya.',
@@ -312,7 +315,7 @@ class _OwnerDetailHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  title,
+                  _normalizeUiText(title),
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
@@ -320,7 +323,7 @@ class _OwnerDetailHeader extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  subtitle,
+                  _normalizeUiText(subtitle),
                   style: const TextStyle(color: Color(0xFF5D6B6B)),
                 ),
               ],

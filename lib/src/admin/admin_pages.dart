@@ -54,199 +54,252 @@ class AdminDashboardPage extends StatelessWidget {
           body: SafeArea(
             top: false,
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(22),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(28),
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF182022), Color(0xFF35589F)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Selamat datang, ${profile.name}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 24,
-                            fontWeight: FontWeight.w900,
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 156),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final contentWidth = constraints.maxWidth;
+                  final isCompact = contentWidth < 360;
+                  final metricColumns = contentWidth < 300
+                      ? 1
+                      : contentWidth >= 720
+                      ? 4
+                      : 2;
+                  final metricWidth =
+                      (contentWidth - (12 * (metricColumns - 1))) /
+                      metricColumns;
+                  final shortcutColumns = contentWidth < 320
+                      ? 1
+                      : contentWidth >= 720
+                      ? 3
+                      : 2;
+                  final shortcutWidth =
+                      (contentWidth - (10 * (shortcutColumns - 1))) /
+                      shortcutColumns;
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: double.infinity,
+                        padding: EdgeInsets.all(isCompact ? 18 : 22),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(28),
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF182022), Color(0xFF35589F)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          '${profile.roleLabel} Koshub | pusat aktivasi owner dan kontrol listing',
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            height: 1.45,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _StatusBadge(
-                              label:
-                                  '${data.ownerRequestsToday} pengajuan owner hari ini',
+                            Text(
+                              'Selamat datang, ${profile.name}',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: isCompact ? 22 : 24,
+                                fontWeight: FontWeight.w900,
+                              ),
                             ),
-                            _StatusBadge(
-                              label:
-                                  '${data.pendingOwnerPayments} pembayaran menunggu cek',
+                            const SizedBox(height: 8),
+                            Text(
+                              '${profile.roleLabel} Koshub | pusat aktivasi owner dan kontrol listing',
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                height: 1.45,
+                              ),
                             ),
-                            _StatusBadge(
-                              label:
-                                  '${data.pendingListings} listing perlu review',
+                            const SizedBox(height: 16),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                _StatusBadge(
+                                  label:
+                                      '${data.ownerRequestsToday} pengajuan owner hari ini',
+                                ),
+                                _StatusBadge(
+                                  label:
+                                      '${data.pendingOwnerPayments} pembayaran menunggu cek',
+                                ),
+                                _StatusBadge(
+                                  label:
+                                      '${data.pendingListings} listing perlu review',
+                                ),
+                              ],
                             ),
                           ],
                         ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 12,
-                    children: [
-                      _AdminMetricCard(
-                        label: 'Total Pengguna',
-                        value: '${data.totalUsers}',
-                        subtitle: 'Semua akun non-admin',
-                        icon: Icons.groups_rounded,
-                        onTap: onOpenUsers,
                       ),
-                      _AdminMetricCard(
-                        label: 'Pemilik Aktif',
-                        value: '${data.totalOwners}',
-                        subtitle: 'Sudah diverifikasi admin',
-                        icon: Icons.verified_user_rounded,
-                        onTap: onOpenOwners,
+                      const SizedBox(height: 20),
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 12,
+                        children: [
+                          SizedBox(
+                            width: metricWidth,
+                            child: _AdminMetricCard(
+                              label: 'Total Pengguna',
+                              value: '${data.totalUsers}',
+                              subtitle: 'Semua akun non-admin',
+                              icon: Icons.groups_rounded,
+                              onTap: onOpenUsers,
+                            ),
+                          ),
+                          SizedBox(
+                            width: metricWidth,
+                            child: _AdminMetricCard(
+                              label: 'Pemilik Aktif',
+                              value: '${data.totalOwners}',
+                              subtitle: 'Sudah diverifikasi admin',
+                              icon: Icons.verified_user_rounded,
+                              onTap: onOpenOwners,
+                            ),
+                          ),
+                          SizedBox(
+                            width: metricWidth,
+                            child: _AdminMetricCard(
+                              label: 'Listing Kos',
+                              value: '${data.totalKos}',
+                              subtitle:
+                                  '${data.pendingListings} perlu moderasi',
+                              icon: Icons.apartment_rounded,
+                              onTap: onOpenListings,
+                            ),
+                          ),
+                          SizedBox(
+                            width: metricWidth,
+                            child: _AdminMetricCard(
+                              label: 'Pendapatan App',
+                              value: _currency(data.platformRevenue),
+                              subtitle: 'Dari aktivasi owner',
+                              icon: Icons.payments_rounded,
+                              onTap: onOpenPayments,
+                            ),
+                          ),
+                        ],
                       ),
-                      _AdminMetricCard(
-                        label: 'Listing Kos',
-                        value: '${data.totalKos}',
-                        subtitle: '${data.pendingListings} perlu moderasi',
-                        icon: Icons.apartment_rounded,
-                        onTap: onOpenListings,
+                      const SizedBox(height: 20),
+                      _AdminSectionCard(
+                        title: 'Quick Control',
+                        subtitle:
+                            'Kelola pengguna, aktivasi pemilik, listing kos, banner, dan voucher.',
+                        child: Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
+                          children: [
+                            SizedBox(
+                              width: shortcutWidth,
+                              child: _AdminShortcutChip(
+                                label: 'Kelola Pengguna',
+                                icon: Icons.manage_accounts_rounded,
+                                onTap: onOpenUsers,
+                              ),
+                            ),
+                            SizedBox(
+                              width: shortcutWidth,
+                              child: _AdminShortcutChip(
+                                label: 'Verifikasi Pemilik',
+                                icon: Icons.fact_check_rounded,
+                                onTap: onOpenOwners,
+                              ),
+                            ),
+                            SizedBox(
+                              width: shortcutWidth,
+                              child: _AdminShortcutChip(
+                                label: 'Moderasi Listing',
+                                icon: Icons.approval_rounded,
+                                onTap: onOpenListings,
+                              ),
+                            ),
+                            SizedBox(
+                              width: shortcutWidth,
+                              child: _AdminShortcutChip(
+                                label: 'Pembayaran Aktivasi',
+                                icon: Icons.account_balance_wallet_rounded,
+                                onTap: onOpenPayments,
+                              ),
+                            ),
+                            SizedBox(
+                              width: shortcutWidth,
+                              child: _AdminShortcutChip(
+                                label: 'CMS & Voucher',
+                                icon: Icons.hub_rounded,
+                                onTap: onOpenControl,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                      _AdminMetricCard(
-                        label: 'Pendapatan App',
-                        value: _currency(data.platformRevenue),
-                        subtitle: 'Dari aktivasi owner',
-                        icon: Icons.payments_rounded,
-                        onTap: onOpenPayments,
+                      const SizedBox(height: 20),
+                      _AdminSectionCard(
+                        title: 'Aktivitas Realtime',
+                        subtitle: 'Alur terbaru pengajuan owner dan listing.',
+                        child: data.recentActivities.isEmpty
+                            ? const Text(
+                                'Belum ada aktivitas terbaru.',
+                                style: TextStyle(color: Color(0xFF5D6B6B)),
+                              )
+                            : Column(
+                                children: data.recentActivities
+                                    .map(
+                                      (activity) => ListTile(
+                                        contentPadding: EdgeInsets.zero,
+                                        leading: CircleAvatar(
+                                          backgroundColor: const Color(
+                                            0xFFEAF1FF,
+                                          ),
+                                          child: Icon(
+                                            activity.icon,
+                                            color: const Color(0xFF35589F),
+                                          ),
+                                        ),
+                                        title: Text(activity.title),
+                                        subtitle: Text(activity.subtitle),
+                                        trailing: Text(activity.timeLabel),
+                                      ),
+                                    )
+                                    .toList(),
+                              ),
+                      ),
+                      const SizedBox(height: 20),
+                      _AdminSectionCard(
+                        title: 'Fokus Hari Ini',
+                        subtitle:
+                            'Area yang paling sering perlu keputusan admin aplikasi.',
+                        child: Column(
+                          children: [
+                            _AdminActionTile(
+                              title: 'Owner terbaru',
+                              subtitle: data.latestOwnerSummary,
+                              icon: Icons.badge_rounded,
+                              onTap: onOpenOwners,
+                            ),
+                            _AdminActionTile(
+                              title: 'Listing teratas',
+                              subtitle: data.topListingSummary,
+                              icon: Icons.trending_up_rounded,
+                              onTap: onOpenListings,
+                            ),
+                            _AdminActionTile(
+                              title: 'Pembayaran aktivasi',
+                              subtitle: data.latestPaymentSummary,
+                              icon: Icons.receipt_long_rounded,
+                              onTap: onOpenPayments,
+                            ),
+                            _AdminActionTile(
+                              title: 'Analytics global',
+                              subtitle:
+                                  'User, owner aktif, listing, pending review, dan revenue owner activation.',
+                              icon: Icons.analytics_rounded,
+                              onTap: onOpenControl,
+                            ),
+                          ],
+                        ),
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 20),
-                  _AdminSectionCard(
-                    title: 'Quick Control',
-                    subtitle:
-                        'Kelola pengguna, aktivasi pemilik, listing kos, banner, dan voucher.',
-                    child: Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      children: [
-                        _AdminShortcutChip(
-                          label: 'Kelola Pengguna',
-                          icon: Icons.manage_accounts_rounded,
-                          onTap: onOpenUsers,
-                        ),
-                        _AdminShortcutChip(
-                          label: 'Verifikasi Pemilik',
-                          icon: Icons.fact_check_rounded,
-                          onTap: onOpenOwners,
-                        ),
-                        _AdminShortcutChip(
-                          label: 'Moderasi Listing',
-                          icon: Icons.approval_rounded,
-                          onTap: onOpenListings,
-                        ),
-                        _AdminShortcutChip(
-                          label: 'Pembayaran Aktivasi',
-                          icon: Icons.account_balance_wallet_rounded,
-                          onTap: onOpenPayments,
-                        ),
-                        _AdminShortcutChip(
-                          label: 'CMS & Voucher',
-                          icon: Icons.hub_rounded,
-                          onTap: onOpenControl,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  _AdminSectionCard(
-                    title: 'Aktivitas Realtime',
-                    subtitle: 'Alur terbaru pengajuan owner dan listing.',
-                    child: data.recentActivities.isEmpty
-                        ? const Text(
-                            'Belum ada aktivitas terbaru.',
-                            style: TextStyle(color: Color(0xFF5D6B6B)),
-                          )
-                        : Column(
-                            children: data.recentActivities
-                                .map(
-                                  (activity) => ListTile(
-                                    contentPadding: EdgeInsets.zero,
-                                    leading: CircleAvatar(
-                                      backgroundColor: const Color(0xFFEAF1FF),
-                                      child: Icon(
-                                        activity.icon,
-                                        color: const Color(0xFF35589F),
-                                      ),
-                                    ),
-                                    title: Text(activity.title),
-                                    subtitle: Text(activity.subtitle),
-                                    trailing: Text(activity.timeLabel),
-                                  ),
-                                )
-                                .toList(),
-                          ),
-                  ),
-                  const SizedBox(height: 20),
-                  _AdminSectionCard(
-                    title: 'Fokus Hari Ini',
-                    subtitle:
-                        'Area yang paling sering perlu keputusan admin aplikasi.',
-                    child: Column(
-                      children: [
-                        _AdminActionTile(
-                          title: 'Owner terbaru',
-                          subtitle: data.latestOwnerSummary,
-                          icon: Icons.badge_rounded,
-                          onTap: onOpenOwners,
-                        ),
-                        _AdminActionTile(
-                          title: 'Listing teratas',
-                          subtitle: data.topListingSummary,
-                          icon: Icons.trending_up_rounded,
-                          onTap: onOpenListings,
-                        ),
-                        _AdminActionTile(
-                          title: 'Pembayaran aktivasi',
-                          subtitle: data.latestPaymentSummary,
-                          icon: Icons.receipt_long_rounded,
-                          onTap: onOpenPayments,
-                        ),
-                        _AdminActionTile(
-                          title: 'Analytics global',
-                          subtitle:
-                              'User, owner aktif, listing, pending review, dan revenue owner activation.',
-                          icon: Icons.analytics_rounded,
-                          onTap: onOpenControl,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+                  );
+                },
               ),
             ),
           ),
@@ -308,7 +361,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                 ),
                 Expanded(
                   child: ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 156),
                     itemBuilder: (context, index) {
                       final user = users[index];
                       final badge = user.hasOwnerRequest
@@ -415,7 +468,7 @@ class _AdminOwnersPageState extends State<AdminOwnersPage> {
                 ),
                 Expanded(
                   child: ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 156),
                     itemBuilder: (context, index) {
                       final owner = owners[index];
                       return _AdminEntityTile(
@@ -472,7 +525,7 @@ class AdminListingsPage extends StatelessWidget {
             title: const Text('Moderasi Listing Kos'),
           ),
           body: ListView.separated(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 156),
             itemBuilder: (context, index) {
               final kos = kosList[index];
               return _AdminEntityTile(
@@ -579,7 +632,7 @@ class _AdminPaymentsPageState extends State<AdminPaymentsPage> {
                 ),
                 Expanded(
                   child: ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 156),
                     itemBuilder: (context, index) {
                       final owner = owners[index];
                       return _AdminEntityTile(
@@ -625,7 +678,7 @@ class AdminControlCenterPage extends StatelessWidget {
       body: SafeArea(
         top: false,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 156),
           children: [
             _AdminSectionCard(
               title: 'Moderasi & Review',

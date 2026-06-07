@@ -4,8 +4,56 @@ class SupabaseService {
   SupabaseService._();
 
   static final instance = SupabaseService._();
+  static const _publicUploadBucket = 'app-uploads';
 
   supabase.SupabaseClient get _client => supabase.Supabase.instance.client;
+
+  Future<String> uploadPublicImage({
+    required User user,
+    required Uint8List bytes,
+    required String fileName,
+    required String folder,
+  }) async {
+    try {
+      final extension = _normalizedImageExtension(fileName);
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final objectPath = '$folder/${user.id}/$timestamp.$extension';
+
+      await _client.storage
+          .from(_publicUploadBucket)
+          .uploadBinary(
+            objectPath,
+            bytes,
+            fileOptions: supabase.FileOptions(
+              upsert: false,
+              contentType: _imageContentType(extension),
+            ),
+          );
+
+      return _client.storage.from(_publicUploadBucket).getPublicUrl(objectPath);
+    } catch (_) {
+      throw SupabaseAppException(
+        plugin: 'supabase_storage',
+        code: 'upload-failed',
+        message:
+            'Upload gambar gagal. Pastikan bucket Storage `app-uploads` dan policy upload-nya sudah dibuat di project Supabase.',
+      );
+    }
+  }
+
+  Future<String> uploadOwnerImage({
+    required User user,
+    required Uint8List bytes,
+    required String fileName,
+    required String folder,
+  }) {
+    return uploadPublicImage(
+      user: user,
+      bytes: bytes,
+      fileName: fileName,
+      folder: folder,
+    );
+  }
 
   Future<void> signInAdmin({
     required String email,
@@ -87,6 +135,43 @@ class SupabaseService {
       'owner_voucher_code':
           existingData?['owner_voucher_code'] as String? ?? '',
     });
+  }
+
+  String _normalizedImageExtension(String fileName) {
+    final lower = fileName.toLowerCase();
+    if (lower.endsWith('.png')) {
+      return 'png';
+    }
+    if (lower.endsWith('.webp')) {
+      return 'webp';
+    }
+    if (lower.endsWith('.gif')) {
+      return 'gif';
+    }
+    if (lower.endsWith('.heic')) {
+      return 'heic';
+    }
+    if (lower.endsWith('.heif')) {
+      return 'heif';
+    }
+    return 'jpg';
+  }
+
+  String _imageContentType(String extension) {
+    switch (extension) {
+      case 'png':
+        return 'image/png';
+      case 'webp':
+        return 'image/webp';
+      case 'gif':
+        return 'image/gif';
+      case 'heic':
+        return 'image/heic';
+      case 'heif':
+        return 'image/heif';
+      default:
+        return 'image/jpeg';
+    }
   }
 
   Future<void> updateTenantProfile({
@@ -813,8 +898,7 @@ class SupabaseService {
     required String paymentProofUrl,
   }) async {
     final user = SupabaseAuth.instance.currentUser!;
-    final profileData =
-        await _profileMap(user.id) ?? const <String, dynamic>{};
+    final profileData = await _profileMap(user.id) ?? const <String, dynamic>{};
     final role = profileData['role'] as String? ?? 'penyewa';
 
     if (role == 'pemilik' || kos.ownerId == user.id) {

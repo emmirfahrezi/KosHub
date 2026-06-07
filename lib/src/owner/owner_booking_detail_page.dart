@@ -17,8 +17,7 @@ class OwnerBookingDetailPage extends StatelessWidget {
         children: [
           _OwnerDetailHeader(
             title: booking.userName,
-            subtitle:
-                '${booking.kos.name} ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ ${booking.roomLabel}',
+            subtitle: '${booking.kos.name} - ${booking.roomLabel}',
             badge: booking.status,
           ),
           const SizedBox(height: 16),
@@ -76,15 +75,9 @@ class OwnerBookingDetailPage extends StatelessWidget {
                 ],
                 if (booking.paymentProofUrl.isNotEmpty) ...[
                   const SizedBox(height: 12),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Bukti pembayaran: ${booking.paymentProofUrl}',
-                      style: const TextStyle(
-                        color: Color(0xFF006A6A),
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
+                  _ImageProofPreview(
+                    title: 'Bukti pembayaran',
+                    imageUrl: booking.paymentProofUrl,
                   ),
                 ],
               ],

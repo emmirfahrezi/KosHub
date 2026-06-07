@@ -36,6 +36,15 @@ String _streamErrorMessage(Object? error) {
   return 'Terjadi kendala saat mengambil data. Periksa koneksi lalu coba lagi.';
 }
 
+String _normalizeUiText(String value) {
+  return value
+      .replaceAll('ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢', ' - ')
+      .replaceAll('ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢', ' - ')
+      .replaceAll('Â·', ' - ')
+      .replaceAll(RegExp(r'\s{2,}'), ' ')
+      .trim();
+}
+
 Future<void> _confirmCancelBooking(
   BuildContext context,
   BookingData booking,
@@ -114,6 +123,99 @@ Future<void> _showLightDialog(
       );
     },
   );
+}
+
+Future<void> _showImagePreviewDialog(
+  BuildContext context, {
+  required String title,
+  required String imageUrl,
+}) {
+  return showDialog<void>(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Text(title),
+        content: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: InteractiveViewer(
+            child: Image.network(
+              imageUrl,
+              fit: BoxFit.contain,
+              errorBuilder: (_, _, _) => Container(
+                width: 260,
+                height: 220,
+                color: const Color(0xFFF7FBFB),
+                alignment: Alignment.center,
+                child: const Text(
+                  'Gambar tidak bisa dimuat.',
+                  style: TextStyle(color: Color(0xFF5D6B6B)),
+                ),
+              ),
+            ),
+          ),
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Tutup'),
+          ),
+        ],
+      );
+    },
+  );
+}
+
+Future<void> _confirmUserLogout(
+  BuildContext context, {
+  String title = 'Keluar dari akun?',
+  String message =
+      'Kamu akan keluar dari akun ini dan diarahkan ke halaman login.',
+}) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Keluar'),
+          ),
+        ],
+      );
+    },
+  );
+
+  if (confirmed != true || !context.mounted) {
+    return;
+  }
+
+  try {
+    await SupabaseAuth.instance.signOut();
+    if (!context.mounted) {
+      return;
+    }
+    Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+      MaterialPageRoute<void>(builder: (_) => const AuthGate()),
+      (_) => false,
+    );
+  } on SupabaseAuthException catch (error) {
+    if (!context.mounted) {
+      return;
+    }
+    await _showLightDialog(
+      context,
+      title: 'Logout gagal',
+      message: error.message ?? 'Sesi akun belum berhasil diakhiri.',
+    );
+  }
 }
 
 Future<void> _confirmAdminLogout(

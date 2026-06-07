@@ -162,7 +162,7 @@ class _OwnerBookingPageState extends State<OwnerBookingPage> {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  '${booking.kos.name} ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ ${booking.roomLabel}',
+                                  '${booking.kos.name} - ${booking.roomLabel}',
                                   style: const TextStyle(
                                     color: Color(0xFF5D6B6B),
                                   ),
@@ -207,12 +207,9 @@ class _OwnerBookingPageState extends State<OwnerBookingPage> {
                       ],
                       if (booking.paymentProofUrl.isNotEmpty) ...[
                         const SizedBox(height: 12),
-                        Text(
-                          'Bukti DP: ${booking.paymentProofUrl}',
-                          style: const TextStyle(
-                            color: Color(0xFF006A6A),
-                            fontWeight: FontWeight.w600,
-                          ),
+                        _ImageProofPreview(
+                          title: 'Bukti DP',
+                          imageUrl: booking.paymentProofUrl,
                         ),
                       ],
                       if (booking.status == 'Sudah Dikonfirmasi') ...[

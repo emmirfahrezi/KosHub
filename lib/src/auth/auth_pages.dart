@@ -1,5 +1,8 @@
 part of '../../main.dart';
 
+String? _pendingAuthNoticeTitle;
+String? _pendingAuthNoticeMessage;
+
 class AuthPage extends StatefulWidget {
   const AuthPage({super.key});
 
@@ -15,6 +18,14 @@ class _AuthPageState extends State<AuthPage> {
 
   bool _isLogin = true;
   bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _showPendingAuthNoticeIfAny();
+    });
+  }
 
   @override
   void dispose() {
@@ -115,87 +126,111 @@ class _AuthPageState extends State<AuthPage> {
                 _isLogin
                     ? 'Akses pencarian kos, chat real-time, dan booking digital.'
                     : 'Daftar sebagai penyewa untuk mulai eksplor kos yang cocok.',
-                style: theme.textTheme.bodyMedium,
-              ),
-              const SizedBox(height: 20),
-              Container(
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE9F0F0),
-                  borderRadius: BorderRadius.circular(20),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: const Color(0xFF5D6B6B),
+                  height: 1.45,
                 ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _AuthModeChip(
-                        label: 'Login',
-                        selected: _isLogin,
-                        onTap: () => setState(() => _isLogin = true),
-                      ),
-                    ),
-                    Expanded(
-                      child: _AuthModeChip(
-                        label: 'Daftar',
-                        selected: !_isLogin,
-                        onTap: () => setState(() => _isLogin = false),
-                      ),
+              ),
+              const SizedBox(height: 22),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(28),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x12000000),
+                      blurRadius: 22,
+                      offset: Offset(0, 10),
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(height: 20),
-              if (!_isLogin) ...[
-                _InputField(
-                  controller: _nameController,
-                  label: 'Nama lengkap',
-                  hintText: 'Masukkan nama lengkap',
-                ),
-                const SizedBox(height: 14),
-              ],
-              _InputField(
-                controller: _emailController,
-                label: 'Email',
-                hintText: 'contoh@email.com',
-                keyboardType: TextInputType.emailAddress,
-              ),
-              const SizedBox(height: 14),
-              _InputField(
-                controller: _passwordController,
-                label: 'Password',
-                hintText: 'Masukkan password',
-                obscureText: true,
-              ),
-              if (!_isLogin) ...[
-                const SizedBox(height: 14),
-                _InputField(
-                  controller: _confirmPasswordController,
-                  label: 'Konfirmasi password',
-                  hintText: 'Ulangi password',
-                  obscureText: true,
-                ),
-              ],
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: _isLoading ? null : _submit,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF006A6A),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                  ),
-                  child: _isLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF1F6F6),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: const Color(0xFFD8E6E6)),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: _AuthModeChip(
+                              label: 'Login',
+                              selected: _isLogin,
+                              onTap: () => setState(() => _isLogin = true),
+                            ),
                           ),
-                        )
-                      : Text(_isLogin ? 'Masuk' : 'Daftar'),
+                          Expanded(
+                            child: _AuthModeChip(
+                              label: 'Daftar',
+                              selected: !_isLogin,
+                              onTap: () => setState(() => _isLogin = false),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    if (!_isLogin) ...[
+                      _InputField(
+                        controller: _nameController,
+                        label: 'Nama Lengkap',
+                        hintText: 'Masukkan nama lengkap',
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                    _InputField(
+                      controller: _emailController,
+                      label: 'Email',
+                      hintText: 'contoh@email.com',
+                      keyboardType: TextInputType.emailAddress,
+                    ),
+                    const SizedBox(height: 16),
+                    _InputField(
+                      controller: _passwordController,
+                      label: 'Password',
+                      hintText: 'Masukkan password',
+                      obscureText: true,
+                    ),
+                    if (!_isLogin) ...[
+                      const SizedBox(height: 16),
+                      _InputField(
+                        controller: _confirmPasswordController,
+                        label: 'Konfirmasi Password',
+                        hintText: 'Ulangi password',
+                        obscureText: true,
+                      ),
+                    ],
+                    const SizedBox(height: 22),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                        onPressed: _isLoading ? null : _submit,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFF006A6A),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                        ),
+                        child: _isLoading
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : Text(_isLogin ? 'Masuk' : 'Daftar'),
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 12),
@@ -233,7 +268,10 @@ class _AuthPageState extends State<AuthPage> {
                 child: const Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Akun KosHub', style: TextStyle(fontWeight: FontWeight.w800)),
+                    Text(
+                      'Akun KosHub',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
                     SizedBox(height: 8),
                     Text(
                       'Daftar sekali untuk mencari kos, menghubungi pemilik, dan mengelola booking dari satu tempat.',
@@ -271,13 +309,18 @@ class _AuthPageState extends State<AuthPage> {
     setState(() => _isLoading = true);
     try {
       if (_isLogin) {
-        final credential = await SupabaseAuth.instance
-            .signInWithPassword(email: email, password: password);
+        final credential = await SupabaseAuth.instance.signInWithPassword(
+          email: email,
+          password: password,
+        );
         await SupabaseService.instance.ensureUserProfile(
           credential.user!,
           fallbackName: credential.user!.displayName ?? email.split('@').first,
         );
       } else {
+        _pendingAuthNoticeTitle = 'Registrasi berhasil';
+        _pendingAuthNoticeMessage =
+            'Selamat, akun anda sudah terdaftar. Silakan login untuk masuk ke aplikasi.';
         await SupabaseAuth.instance.signUpWithPassword(
           email: email,
           password: password,
@@ -299,12 +342,7 @@ class _AuthPageState extends State<AuthPage> {
           _passwordController.clear();
           _confirmPasswordController.clear();
         });
-        await _showLightDialog(
-          context,
-          title: 'Registrasi berhasil',
-          message:
-              'Selamat, akun anda sudah terdaftar. Silakan login untuk masuk ke aplikasi.',
-        );
+        await _showPendingAuthNoticeIfAny();
       }
     } on SupabaseAuthException catch (error) {
       _showMessage(_authMessage(error));
@@ -343,6 +381,20 @@ class _AuthPageState extends State<AuthPage> {
       message: message,
     );
   }
+
+  Future<void> _showPendingAuthNoticeIfAny() async {
+    final title = _pendingAuthNoticeTitle;
+    final message = _pendingAuthNoticeMessage;
+
+    if (!mounted || title == null || message == null) {
+      return;
+    }
+
+    _pendingAuthNoticeTitle = null;
+    _pendingAuthNoticeMessage = null;
+
+    await _showLightDialog(context, title: title, message: message);
+  }
 }
 
 class AdminLoginPage extends StatefulWidget {
@@ -370,7 +422,23 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Login Admin')),
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () {
+            final navigator = Navigator.of(context, rootNavigator: true);
+            if (navigator.canPop()) {
+              navigator.pop();
+            } else {
+              navigator.pushAndRemoveUntil(
+                MaterialPageRoute<void>(builder: (_) => const AuthGate()),
+                (_) => false,
+              );
+            }
+          },
+        ),
+        title: const Text('Login Admin'),
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
@@ -474,7 +542,10 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
                 child: const Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Akses admin', style: TextStyle(fontWeight: FontWeight.w800)),
+                    Text(
+                      'Akses admin',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
                     SizedBox(height: 8),
                     Text(
                       'Gunakan akun admin yang sudah terdaftar untuk mengelola pengguna, listing kos, dan transaksi.',
@@ -506,7 +577,15 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
         password: password,
       );
       if (mounted) {
-        Navigator.pop(context);
+        final navigator = Navigator.of(context, rootNavigator: true);
+        if (navigator.canPop()) {
+          navigator.pop();
+        } else {
+          navigator.pushAndRemoveUntil(
+            MaterialPageRoute<void>(builder: (_) => const AuthGate()),
+            (_) => false,
+          );
+        }
       }
     } on SupabaseAuthException catch (error) {
       _showMessage(error.message ?? 'Login admin gagal.');

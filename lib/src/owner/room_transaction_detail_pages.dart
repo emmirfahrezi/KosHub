@@ -17,8 +17,7 @@ class TransactionDetailPage extends StatelessWidget {
         children: [
           _OwnerDetailHeader(
             title: booking.userName,
-            subtitle:
-                '${booking.kos.name} ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ ${booking.roomLabel}',
+            subtitle: '${booking.kos.name} - ${booking.roomLabel}',
             badge: booking.paymentStatus,
           ),
           const SizedBox(height: 16),
@@ -54,15 +53,9 @@ class TransactionDetailPage extends StatelessWidget {
                 const _SummaryRow(label: 'Admin fee', value: 'Rp 0'),
                 if (booking.paymentProofUrl.isNotEmpty) ...[
                   const SizedBox(height: 12),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Bukti transfer: ${booking.paymentProofUrl}',
-                      style: const TextStyle(
-                        color: Color(0xFF006A6A),
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
+                  _ImageProofPreview(
+                    title: 'Bukti transfer',
+                    imageUrl: booking.paymentProofUrl,
                   ),
                 ],
               ],

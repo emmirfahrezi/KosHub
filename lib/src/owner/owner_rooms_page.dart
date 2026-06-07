@@ -80,7 +80,7 @@ class OwnerRoomsPage extends StatelessWidget {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          '${kos.area} ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ ${kos.address}',
+                          '${kos.area} - ${kos.address}',
                           style: const TextStyle(
                             color: Color(0xFF5D6B6B),
                             height: 1.45,
@@ -187,7 +187,7 @@ class OwnerRoomsPage extends StatelessWidget {
                                   const SizedBox(height: 4),
                                   Text(
                                     occupied
-                                        ? '${resident.userName} ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ sampai ${resident.endDate}'
+                                        ? '${resident.userName} - sampai ${resident.endDate}'
                                         : 'Kamar kosong dan siap diisi',
                                     style: const TextStyle(
                                       color: Color(0xFF5D6B6B),

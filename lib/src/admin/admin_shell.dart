@@ -67,18 +67,45 @@ class _AdminShellState extends State<AdminShell> {
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            child: Row(
-              children: List.generate(destinations.length, (index) {
-                final item = destinations[index];
-                return Expanded(
-                  child: _NavItem(
-                    label: item.label,
-                    icon: item.icon,
-                    selected: safeIndex == index,
-                    onTap: () => setState(() => _currentIndex = index),
-                  ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final isCompact = constraints.maxWidth < 380;
+
+                if (isCompact) {
+                  final itemWidth = (constraints.maxWidth - 16) / 3;
+                  return Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: List.generate(destinations.length, (index) {
+                      final item = destinations[index];
+                      return SizedBox(
+                        width: itemWidth,
+                        child: _NavItem(
+                          label: item.label,
+                          icon: item.icon,
+                          selected: safeIndex == index,
+                          dense: true,
+                          onTap: () => setState(() => _currentIndex = index),
+                        ),
+                      );
+                    }),
+                  );
+                }
+
+                return Row(
+                  children: List.generate(destinations.length, (index) {
+                    final item = destinations[index];
+                    return Expanded(
+                      child: _NavItem(
+                        label: item.label,
+                        icon: item.icon,
+                        selected: safeIndex == index,
+                        onTap: () => setState(() => _currentIndex = index),
+                      ),
+                    );
+                  }),
                 );
-              }),
+              },
             ),
           ),
         ),

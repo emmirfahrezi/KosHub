@@ -217,32 +217,35 @@ class ProfilePage extends StatelessWidget {
                           },
                         ),
                         const SizedBox(height: 12),
-                        FilledButton.icon(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute<void>(
-                                builder: (_) => OwnerRegistrationPage(
-                                  existingKos: ownerKos,
-                                  profile: profile,
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton.icon(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute<void>(
+                                  builder: (_) => OwnerRegistrationPage(
+                                    existingKos: ownerKos,
+                                    profile: profile,
+                                  ),
                                 ),
-                              ),
-                            );
-                          },
-                          icon: Icon(
-                            ownerKos == null
-                                ? Icons.add_business_rounded
-                                : Icons.edit_rounded,
-                          ),
-                          label: Text(
-                            ownerKos == null
-                                ? 'Lengkapi Listing Kos'
-                                : 'Edit Listing Kos',
-                          ),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: const Color(0xFF006A6A),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
+                              );
+                            },
+                            icon: Icon(
+                              ownerKos == null
+                                  ? Icons.add_business_rounded
+                                  : Icons.edit_rounded,
+                            ),
+                            label: Text(
+                              ownerKos == null
+                                  ? 'Lengkapi Listing Kos'
+                                  : 'Edit Listing Kos',
+                            ),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: const Color(0xFF006A6A),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                            ),
                           ),
                         ),
                       ],
@@ -256,32 +259,35 @@ class ProfilePage extends StatelessWidget {
                   ),
                   builder: (context, ownerKosSnapshot) {
                     final ownerKos = ownerKosSnapshot.data;
-                    return FilledButton.icon(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute<void>(
-                            builder: (_) => OwnerRegistrationPage(
-                              existingKos: ownerKos,
-                              profile: profile,
+                    return SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute<void>(
+                              builder: (_) => OwnerRegistrationPage(
+                                existingKos: ownerKos,
+                                profile: profile,
+                              ),
                             ),
-                          ),
-                        );
-                      },
-                      icon: Icon(
-                        hasOwnerRequest
-                            ? Icons.edit_note_rounded
-                            : Icons.store_mall_directory_rounded,
-                      ),
-                      label: Text(
-                        hasOwnerRequest
-                            ? 'Lanjutkan / Edit Pengajuan Owner'
-                            : 'Daftar Menjadi Pemilik Kos',
-                      ),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: const Color(0xFF006A6A),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
+                          );
+                        },
+                        icon: Icon(
+                          hasOwnerRequest
+                              ? Icons.edit_note_rounded
+                              : Icons.store_mall_directory_rounded,
+                        ),
+                        label: Text(
+                          hasOwnerRequest
+                              ? 'Lanjutkan / Edit Pengajuan Owner'
+                              : 'Daftar Menjadi Pemilik Kos',
+                        ),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFF006A6A),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                        ),
                       ),
                     );
                   },
@@ -290,7 +296,7 @@ class ProfilePage extends StatelessWidget {
                 margin: const EdgeInsets.only(top: 12),
                 child: FilledButton.icon(
                   onPressed: () async {
-                    await SupabaseAuth.instance.signOut();
+                    await _confirmUserLogout(context);
                   },
                   icon: const Icon(Icons.logout_rounded),
                   label: const Text('Keluar'),

@@ -166,29 +166,43 @@ class _HomeHeroState extends State<_HomeHero> {
                         ),
                       ],
                     ),
-                    child: TextField(
-                      controller: _controller,
-                      focusNode: _focusNode,
-                      textInputAction: TextInputAction.search,
-                      onChanged: widget.onChanged,
-                      onSubmitted: widget.onSubmitted,
-                      decoration: InputDecoration(
-                        hintText: 'Cari lokasi atau nama kos...',
-                        hintStyle: const TextStyle(color: Color(0xFF667271)),
-                        prefixIcon: const Icon(
-                          Icons.search_rounded,
-                          color: Color(0xFF667271),
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(999),
-                          borderSide: BorderSide.none,
-                        ),
-                        filled: true,
-                        fillColor: Colors.white,
-                        contentPadding: const EdgeInsets.symmetric(
-                          vertical: 16,
-                        ),
-                      ),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final compactHint = constraints.maxWidth < 320;
+
+                        return TextField(
+                          controller: _controller,
+                          focusNode: _focusNode,
+                          textInputAction: TextInputAction.search,
+                          onChanged: widget.onChanged,
+                          onSubmitted: widget.onSubmitted,
+                          decoration: InputDecoration(
+                            hintText: compactHint
+                                ? 'Cari kos atau lokasi'
+                                : 'Cari lokasi atau nama kos...',
+                            hintMaxLines: 1,
+                            hintStyle: const TextStyle(
+                              color: Color(0xFF667271),
+                              fontSize: 13,
+                            ),
+                            prefixIcon: const Icon(
+                              Icons.search_rounded,
+                              color: Color(0xFF667271),
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(999),
+                              borderSide: BorderSide.none,
+                            ),
+                            filled: true,
+                            fillColor: Colors.white,
+                            isDense: true,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 16,
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ),
@@ -566,12 +580,22 @@ class _AuthModeChip extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected ? Colors.white : Colors.transparent,
           borderRadius: BorderRadius.circular(16),
+          boxShadow: selected
+              ? const [
+                  BoxShadow(
+                    color: Color(0x12006A6A),
+                    blurRadius: 12,
+                    offset: Offset(0, 4),
+                  ),
+                ]
+              : null,
         ),
         child: Center(
           child: Text(
             label,
             style: TextStyle(
               fontWeight: FontWeight.w800,
+              fontSize: 14,
               color: selected
                   ? const Color(0xFF006A6A)
                   : const Color(0xFF5D6B6B),
@@ -614,6 +638,8 @@ class _InputField extends StatelessWidget {
           style: const TextStyle(
             fontWeight: FontWeight.w700,
             color: Color(0xFF314040),
+            fontSize: 13,
+            letterSpacing: 0.2,
           ),
         ),
         const SizedBox(height: 8),
@@ -624,13 +650,38 @@ class _InputField extends StatelessWidget {
           maxLines: obscureText ? 1 : maxLines,
           readOnly: readOnly,
           onTap: onTap,
+          style: const TextStyle(
+            color: Color(0xFF182022),
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
           decoration: InputDecoration(
             hintText: hintText,
+            hintStyle: const TextStyle(
+              color: Color(0xFF9AA7A7),
+              fontWeight: FontWeight.w500,
+              fontSize: 14,
+            ),
             filled: true,
-            fillColor: Colors.white,
+            fillColor: const Color(0xFFFCFEFE),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 16,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(18),
+              borderSide: const BorderSide(color: Color(0xFFE4ECEC)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(18),
+              borderSide: const BorderSide(
+                color: Color(0xFF0A8A8A),
+                width: 1.4,
+              ),
+            ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(18),
-              borderSide: BorderSide.none,
+              borderSide: const BorderSide(color: Color(0xFFE4ECEC)),
             ),
           ),
         ),
@@ -942,12 +993,12 @@ class _OwnerSectionCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            title,
+            _normalizeUiText(title),
             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 8),
           Text(
-            subtitle,
+            _normalizeUiText(subtitle),
             style: const TextStyle(color: Color(0xFF5D6B6B), height: 1.45),
           ),
           const SizedBox(height: 14),
@@ -1189,8 +1240,11 @@ class _ProfileMenuTile extends StatelessWidget {
           ),
           child: Icon(icon, color: const Color(0xFF006A6A)),
         ),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
-        subtitle: Text(subtitle),
+        title: Text(
+          _normalizeUiText(title),
+          style: const TextStyle(fontWeight: FontWeight.w800),
+        ),
+        subtitle: Text(_normalizeUiText(subtitle)),
       ),
     );
   }
@@ -1216,10 +1270,19 @@ class _SummaryRow extends StatelessWidget {
     );
 
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: style),
-        const Spacer(),
-        Text(value, style: style),
+        Expanded(flex: 4, child: Text(_normalizeUiText(label), style: style)),
+        const SizedBox(width: 12),
+        Expanded(
+          flex: 5,
+          child: Text(
+            _normalizeUiText(value),
+            textAlign: TextAlign.right,
+            softWrap: true,
+            style: style,
+          ),
+        ),
       ],
     );
   }
@@ -1293,42 +1356,58 @@ class _AdminMetricCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 160,
-      child: Material(
-        color: Colors.white,
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(24),
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(24),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(24),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(icon, color: const Color(0xFF35589F)),
-                const SizedBox(height: 12),
-                Text(
-                  value,
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w900,
-                    color: Color(0xFF182022),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final isCompact = constraints.maxWidth < 145;
+
+            return Padding(
+              padding: EdgeInsets.all(isCompact ? 14 : 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(icon, color: const Color(0xFF35589F)),
+                  SizedBox(height: isCompact ? 10 : 12),
+                  Text(
+                    value,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: isCompact ? 20 : 24,
+                      fontWeight: FontWeight.w900,
+                      color: const Color(0xFF182022),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  label,
-                  style: const TextStyle(fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  style: const TextStyle(color: Color(0xFF5D6B6B), height: 1.4),
-                ),
-              ],
-            ),
-          ),
+                  SizedBox(height: isCompact ? 4 : 6),
+                  Text(
+                    label,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: isCompact ? 13 : 14,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: const Color(0xFF5D6B6B),
+                      height: 1.4,
+                      fontSize: isCompact ? 12 : 13,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
         ),
       ),
     );
@@ -1388,15 +1467,163 @@ class _AdminShortcutChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ActionChip(
-      avatar: Icon(icon, size: 18, color: const Color(0xFF35589F)),
-      label: Text(label),
-      onPressed: onTap,
-      side: BorderSide.none,
-      backgroundColor: const Color(0xFFEAF1FF),
+    return Material(
+      color: const Color(0xFFEAF1FF),
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          child: Row(
+            children: [
+              Icon(icon, size: 18, color: const Color(0xFF35589F)),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF182022),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
+
+class _ImageProofPreview extends StatelessWidget {
+  const _ImageProofPreview({required this.title, required this.imageUrl});
+
+  final String title;
+  final String imageUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            color: Color(0xFF5D6B6B),
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 10),
+        InkWell(
+          onTap: () => _showImagePreviewDialog(
+            context,
+            title: title,
+            imageUrl: imageUrl,
+          ),
+          borderRadius: BorderRadius.circular(18),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(18),
+            child: SizedBox(
+              width: double.infinity,
+              height: 180,
+              child: Image.network(
+                imageUrl,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => Container(
+                  color: const Color(0xFFF7FBFB),
+                  alignment: Alignment.center,
+                  child: const Text(
+                    'Gambar tidak bisa dimuat.',
+                    style: TextStyle(color: Color(0xFF5D6B6B)),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ActionBarButton extends StatelessWidget {
+  const _ActionBarButton({
+    required this.label,
+    required this.onPressed,
+    this.icon,
+    this.variant = _ActionBarButtonVariant.outlined,
+  });
+
+  final String label;
+  final VoidCallback? onPressed;
+  final IconData? icon;
+  final _ActionBarButtonVariant variant;
+
+  @override
+  Widget build(BuildContext context) {
+    final child = icon == null
+        ? Text(label)
+        : Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 18),
+              const SizedBox(width: 8),
+              Flexible(child: Text(label, textAlign: TextAlign.center)),
+            ],
+          );
+
+    switch (variant) {
+      case _ActionBarButtonVariant.filled:
+        return SizedBox(
+          width: double.infinity,
+          child: FilledButton(
+            onPressed: onPressed,
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 15),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+            child: child,
+          ),
+        );
+      case _ActionBarButtonVariant.tonal:
+        return SizedBox(
+          width: double.infinity,
+          child: FilledButton.tonal(
+            onPressed: onPressed,
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 15),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+            child: child,
+          ),
+        );
+      case _ActionBarButtonVariant.outlined:
+        return SizedBox(
+          width: double.infinity,
+          child: OutlinedButton(
+            onPressed: onPressed,
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 15),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+            child: child,
+          ),
+        );
+    }
+  }
+}
+
+enum _ActionBarButtonVariant { outlined, filled, tonal }
 
 class _AdminActionTile extends StatelessWidget {
   const _AdminActionTile({
@@ -1581,7 +1808,7 @@ class _DetailRow extends StatelessWidget {
       children: [
         Expanded(
           child: Text(
-            label,
+            _normalizeUiText(label),
             style: const TextStyle(
               color: Color(0xFF5D6B6B),
               fontWeight: FontWeight.w700,
@@ -1591,8 +1818,9 @@ class _DetailRow extends StatelessWidget {
         const SizedBox(width: 12),
         Expanded(
           child: Text(
-            value,
+            _normalizeUiText(value),
             textAlign: TextAlign.right,
+            softWrap: true,
             style: const TextStyle(
               color: Color(0xFF182022),
               fontWeight: FontWeight.w800,
@@ -1632,42 +1860,20 @@ class _SearchField extends StatelessWidget {
   }
 }
 
-class _StaticActionLine extends StatelessWidget {
-  const _StaticActionLine(this.label);
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.check_circle_outline_rounded,
-            size: 18,
-            color: Color(0xFF35589F),
-          ),
-          const SizedBox(width: 10),
-          Expanded(child: Text(label)),
-        ],
-      ),
-    );
-  }
-}
-
 class _NavItem extends StatelessWidget {
   const _NavItem({
     required this.label,
     required this.icon,
     required this.selected,
     required this.onTap,
+    this.dense = false,
   });
 
   final String label;
   final IconData icon;
   final bool selected;
   final VoidCallback onTap;
+  final bool dense;
 
   @override
   Widget build(BuildContext context) {
@@ -1683,7 +1889,10 @@ class _NavItem extends StatelessWidget {
       borderRadius: BorderRadius.circular(999),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        padding: EdgeInsets.symmetric(
+          horizontal: dense ? 6 : 8,
+          vertical: dense ? 8 : 10,
+        ),
         decoration: BoxDecoration(
           color: backgroundColor,
           borderRadius: BorderRadius.circular(999),
@@ -1691,17 +1900,18 @@ class _NavItem extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: foregroundColor),
-            const SizedBox(height: 2),
+            Icon(icon, color: foregroundColor, size: dense ? 20 : 24),
+            SizedBox(height: dense ? 3 : 2),
             Text(
               label,
-              maxLines: 1,
+              maxLines: dense ? 2 : 1,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: foregroundColor,
-                fontSize: 11,
+                fontSize: dense ? 10 : 11,
                 fontWeight: FontWeight.w800,
+                height: 1.15,
               ),
             ),
           ],

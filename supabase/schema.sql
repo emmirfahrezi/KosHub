@@ -439,3 +439,27 @@ drop policy if exists owner_vouchers_admin_write on public.owner_vouchers;
 create policy owner_vouchers_admin_write on public.owner_vouchers
 for all using (public.is_admin())
 with check (public.is_admin());
+
+insert into storage.buckets (id, name, public)
+values ('app-uploads', 'app-uploads', true)
+on conflict (id) do nothing;
+
+drop policy if exists app_uploads_public_read on storage.objects;
+create policy app_uploads_public_read on storage.objects
+for select using (bucket_id = 'app-uploads');
+
+drop policy if exists app_uploads_authenticated_insert on storage.objects;
+create policy app_uploads_authenticated_insert on storage.objects
+for insert to authenticated
+with check (bucket_id = 'app-uploads');
+
+drop policy if exists app_uploads_owner_update on storage.objects;
+create policy app_uploads_owner_update on storage.objects
+for update to authenticated
+using (bucket_id = 'app-uploads' and owner = auth.uid())
+with check (bucket_id = 'app-uploads' and owner = auth.uid());
+
+drop policy if exists app_uploads_owner_delete on storage.objects;
+create policy app_uploads_owner_delete on storage.objects
+for delete to authenticated
+using (bucket_id = 'app-uploads' and owner = auth.uid());

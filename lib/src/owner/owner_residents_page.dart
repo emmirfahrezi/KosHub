@@ -188,7 +188,7 @@ class _OwnerResidentsPageState extends State<OwnerResidentsPage> {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  '${booking.roomLabel} ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ ${booking.kos.name}',
+                                  '${booking.roomLabel} - ${booking.kos.name}',
                                   style: const TextStyle(
                                     color: Color(0xFF5D6B6B),
                                   ),

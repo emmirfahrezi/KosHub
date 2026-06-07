@@ -233,15 +233,19 @@ class _AdminOwnerDetailPageState extends State<AdminOwnerDetailPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  owner.activationPaymentProofUrl.isEmpty
-                      ? 'Belum ada bukti pembayaran.'
-                      : owner.activationPaymentProofUrl,
-                  style: const TextStyle(
-                    color: Color(0xFF35589F),
-                    fontWeight: FontWeight.w700,
+                if (owner.activationPaymentProofUrl.isEmpty)
+                  const Text(
+                    'Belum ada bukti pembayaran.',
+                    style: TextStyle(
+                      color: Color(0xFF35589F),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  )
+                else
+                  _ImageProofPreview(
+                    title: 'Bukti pembayaran aktivasi',
+                    imageUrl: owner.activationPaymentProofUrl,
                   ),
-                ),
                 const SizedBox(height: 12),
                 _InputField(
                   controller: _notesController,
@@ -937,6 +941,8 @@ class AdminSettingsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final user = SupabaseAuth.instance.currentUser;
+    final email = user?.email ?? '-';
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.white,
@@ -946,27 +952,41 @@ class AdminSettingsPage extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
         children: [
           _AdminSectionCard(
-            title: 'Security',
-            subtitle: 'Baseline untuk akun dengan akses tertinggi.',
+            title: 'Akun Admin',
+            subtitle: 'Kelola sesi akun admin yang sedang aktif.',
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const _StaticActionLine(
-                  'Password akun terlindungi dan tidak dapat dilihat admin.',
+                Text(
+                  'Login sebagai',
+                  style: TextStyle(
+                    color: const Color(0xFF5D6B6B),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-                const _StaticActionLine(
-                  'Role gating untuk area admin aplikasi',
+                const SizedBox(height: 4),
+                Text(
+                  email,
+                  style: const TextStyle(
+                    color: Color(0xFF182022),
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
-                const _StaticActionLine(
-                  'Siapkan OTP, 2FA, session timeout 15-30 menit, dan device recognition',
+                const SizedBox(height: 8),
+                const Text(
+                  'Gunakan tombol di bawah ini kalau mau keluar dari dashboard admin.',
+                  style: TextStyle(color: Color(0xFF5D6B6B), height: 1.45),
                 ),
                 const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton.icon(
                     onPressed: () async =>
-                        _confirmAdminLogout(context, email: user?.email ?? ''),
+                        _confirmAdminLogout(context, email: email),
                     icon: const Icon(Icons.logout_rounded),
-                    label: Text('Logout ${user?.email ?? ''}'),
+                    label: Text('Logout $email'),
                     style: FilledButton.styleFrom(
                       backgroundColor: const Color(0xFF182022),
                       foregroundColor: Colors.white,

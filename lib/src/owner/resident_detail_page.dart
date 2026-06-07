@@ -19,8 +19,7 @@ class ResidentDetailPage extends StatelessWidget {
         children: [
           _OwnerDetailHeader(
             title: booking.userName,
-            subtitle:
-                '${booking.kos.name} ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ ${booking.roomLabel}',
+            subtitle: '${booking.kos.name} - ${booking.roomLabel}',
             badge: booking.paymentStatus,
             photoUrl: booking.userPhoto,
           ),
@@ -93,7 +92,7 @@ class ResidentDetailPage extends StatelessWidget {
                   ...booking.ownerNotes.map(
                     (note) => Padding(
                       padding: const EdgeInsets.only(bottom: 8),
-                      child: Text('ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ $note'),
+                      child: Text('- $note'),
                     ),
                   ),
                 ],
