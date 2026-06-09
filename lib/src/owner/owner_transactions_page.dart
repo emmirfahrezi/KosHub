@@ -19,14 +19,17 @@ class OwnerTransactionsPage extends StatefulWidget {
 class _OwnerTransactionsPageState extends State<OwnerTransactionsPage> {
   late final TextEditingController _searchController;
   late OwnerTransactionFilter _selectedFilter;
+  late final Stream<List<BookingData>> _bookingsStream;
   String _query = '';
 
   @override
   void initState() {
     super.initState();
+    final user = SupabaseAuth.instance.currentUser!;
     _selectedFilter = widget.initialFilter;
     _query = widget.initialQuery;
     _searchController = TextEditingController(text: widget.initialQuery);
+    _bookingsStream = SupabaseService.instance.ownerBookingsStream(user.id);
   }
 
   @override
@@ -37,15 +40,13 @@ class _OwnerTransactionsPageState extends State<OwnerTransactionsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final user = SupabaseAuth.instance.currentUser!;
-
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.white,
         title: const Text('Riwayat Transaksi'),
       ),
       body: StreamBuilder<List<BookingData>>(
-        stream: SupabaseService.instance.ownerBookingsStream(user.id),
+        stream: _bookingsStream,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const _LoadingScreen(label: 'Memuat transaksi...');

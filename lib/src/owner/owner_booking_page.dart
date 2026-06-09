@@ -16,13 +16,16 @@ class OwnerBookingPage extends StatefulWidget {
 
 class _OwnerBookingPageState extends State<OwnerBookingPage> {
   late final TextEditingController _searchController;
+  late final Stream<List<BookingData>> _bookingsStream;
   String _query = '';
 
   @override
   void initState() {
     super.initState();
+    final user = SupabaseAuth.instance.currentUser!;
     _query = widget.initialQuery;
     _searchController = TextEditingController(text: widget.initialQuery);
+    _bookingsStream = SupabaseService.instance.ownerBookingsStream(user.id);
   }
 
   @override
@@ -33,8 +36,6 @@ class _OwnerBookingPageState extends State<OwnerBookingPage> {
 
   @override
   Widget build(BuildContext context) {
-    final user = SupabaseAuth.instance.currentUser!;
-
     return DefaultTabController(
       length: 4,
       initialIndex: widget.initialTab.clamp(0, 3),
@@ -53,7 +54,7 @@ class _OwnerBookingPageState extends State<OwnerBookingPage> {
           ),
         ),
         body: StreamBuilder<List<BookingData>>(
-          stream: SupabaseService.instance.ownerBookingsStream(user.id),
+          stream: _bookingsStream,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const _LoadingScreen(label: 'Memuat booking owner...');
@@ -67,7 +68,8 @@ class _OwnerBookingPageState extends State<OwnerBookingPage> {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
                   child: _buildSearchCard(
-                    hintText: 'Cari nama penghuni, kamar, atau status bayar...',
+                    hintText:
+                        'Cari nama penghuni, kamar, atau status booking...',
                   ),
                 ),
                 Expanded(

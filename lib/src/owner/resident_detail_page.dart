@@ -7,8 +7,6 @@ class ResidentDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dueDate = _nextBillingDueDate(booking.startDateValue, DateTime.now());
-
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.white,
@@ -20,7 +18,7 @@ class ResidentDetailPage extends StatelessWidget {
           _OwnerDetailHeader(
             title: booking.userName,
             subtitle: '${booking.kos.name} - ${booking.roomLabel}',
-            badge: booking.paymentStatus,
+            badge: booking.status,
             photoUrl: booking.userPhoto,
           ),
           const SizedBox(height: 16),
@@ -58,15 +56,7 @@ class ResidentDetailPage extends StatelessWidget {
                 const SizedBox(height: 6),
                 _SummaryRow(label: 'Durasi sewa', value: booking.durationLabel),
                 const SizedBox(height: 6),
-                _SummaryRow(
-                  label: 'Tanggal jatuh tempo',
-                  value: _formatLongDate(dueDate),
-                ),
-                const SizedBox(height: 6),
-                _SummaryRow(
-                  label: 'Status pembayaran',
-                  value: booking.paymentStatus,
-                ),
+                _SummaryRow(label: 'Status penghuni', value: booking.status),
               ],
             ),
           ),
@@ -114,15 +104,6 @@ class ResidentDetailPage extends StatelessWidget {
                   title: 'Check-in terjadwal',
                   subtitle: booking.startDate,
                 ),
-                _TimelineTile(
-                  title: 'Jatuh tempo berikutnya',
-                  subtitle: _formatLongDate(dueDate),
-                ),
-                if (booking.paymentUpdatedAt != null)
-                  _TimelineTile(
-                    title: 'Update pembayaran',
-                    subtitle: _formatLongDate(booking.paymentUpdatedAt!),
-                  ),
               ],
             ),
           ),
@@ -158,12 +139,11 @@ class ResidentDetailPage extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute<void>(
-                      builder: (_) =>
-                          OwnerTransactionsPage(initialQuery: booking.userName),
+                      builder: (_) => const OwnerBookingPage(initialTab: 1),
                     ),
                   );
                 },
-                child: const Text('Lihat Transaksi'),
+                child: const Text('Lihat Booking'),
               ),
               const SizedBox(width: 8),
               FilledButton.tonal(
@@ -217,7 +197,7 @@ class ResidentDetailPage extends StatelessWidget {
                 controller: controller,
                 maxLines: 3,
                 decoration: const InputDecoration(
-                  hintText: 'Contoh: Sering telat bayar',
+                  hintText: 'Contoh: Perlu follow up soal perpanjangan sewa',
                   border: OutlineInputBorder(),
                 ),
               ),

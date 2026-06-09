@@ -25,6 +25,7 @@ class ProfilePage extends StatelessWidget {
                 name: profile?.name ?? user.displayName ?? 'Pengguna KosHub',
                 email: profile?.email ?? user.email ?? '-',
                 role: profile?.roleLabel ?? 'Penyewa',
+                photoUrl: profile?.photoUrl ?? user.photoURL ?? '',
               ),
               if (!isOwner) ...[
                 const SizedBox(height: 12),
@@ -129,40 +130,17 @@ class ProfilePage extends StatelessWidget {
               ],
               const SizedBox(height: 18),
               _ProfileMenuTile(
-                icon: Icons.person_outline_rounded,
-                title: 'Data Diri',
-                subtitle: isOwner
-                    ? 'Buka pengaturan akun pemilik dan profil kos'
-                    : 'Lihat dan ubah profil penyewa',
-                onTap: isOwner
-                    ? () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute<void>(
-                            builder: (_) => const OwnerSettingsPage(),
-                          ),
-                        );
-                      }
-                    : () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute<void>(
-                            builder: (_) =>
-                                TenantProfileEditPage(profile: profile),
-                          ),
-                        );
-                      },
-              ),
-              _ProfileMenuTile(
                 icon: Icons.receipt_long_rounded,
-                title: 'Riwayat Transaksi',
-                subtitle: 'Pantau status pembayaran dan booking',
+                title: isOwner ? 'Daftar Booking' : 'Riwayat Transaksi',
+                subtitle: isOwner
+                    ? 'Lihat booking masuk dan statusnya'
+                    : 'Pantau status pembayaran dan booking',
                 onTap: () {
                   Navigator.push(
                     context,
                     MaterialPageRoute<void>(
                       builder: (_) => isOwner
-                          ? const OwnerTransactionsPage()
+                          ? const OwnerBookingPage(initialTab: 0)
                           : const BookingHistoryPage(),
                     ),
                   );
@@ -215,6 +193,28 @@ class ProfilePage extends StatelessWidget {
                               ),
                             );
                           },
+                        ),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute<void>(
+                                  builder: (_) => const OwnerSettingsPage(),
+                                ),
+                              );
+                            },
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(18),
+                              ),
+                            ),
+                            icon: const Icon(Icons.manage_accounts_rounded),
+                            label: const Text('Edit Profil Owner'),
+                          ),
                         ),
                         const SizedBox(height: 12),
                         SizedBox(
@@ -316,19 +316,31 @@ class ProfilePage extends StatelessWidget {
 }
 
 class TenantProfileEditPage extends StatefulWidget {
-  const TenantProfileEditPage({super.key, required this.profile});
+  const TenantProfileEditPage({
+    super.key,
+    required this.profile,
+    this.pageTitle = 'Edit Profil',
+    this.introText =
+        'Ubah data profil penyewa tanpa mengubah gaya halaman utama. Password sekarang dipisah ke halaman khusus agar lebih aman.',
+    this.passwordPageTitle = 'Ubah Password',
+  });
 
   final AppUserData? profile;
+  final String pageTitle;
+  final String introText;
+  final String passwordPageTitle;
 
   @override
   State<TenantProfileEditPage> createState() => _TenantProfileEditPageState();
 }
 
 class _TenantProfileEditPageState extends State<TenantProfileEditPage> {
+  final _picker = ImagePicker();
   late final TextEditingController _nameController;
   late final TextEditingController _phoneController;
   late final TextEditingController _photoController;
-  final _passwordController = TextEditingController();
+  Uint8List? _selectedPhotoBytes;
+  String? _selectedPhotoName;
   bool _saving = false;
 
   @override
@@ -353,7 +365,6 @@ class _TenantProfileEditPageState extends State<TenantProfileEditPage> {
     _nameController.dispose();
     _phoneController.dispose();
     _photoController.dispose();
-    _passwordController.dispose();
     super.dispose();
   }
 
@@ -361,7 +372,7 @@ class _TenantProfileEditPageState extends State<TenantProfileEditPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Edit Profil'),
+        title: Text(widget.pageTitle),
         backgroundColor: Colors.white,
       ),
       body: ListView(
@@ -373,9 +384,9 @@ class _TenantProfileEditPageState extends State<TenantProfileEditPage> {
               color: Colors.white,
               borderRadius: BorderRadius.circular(24),
             ),
-            child: const Text(
-              'Ubah data profil penyewa tanpa mengubah gaya halaman utama. Password bersifat opsional.',
-              style: TextStyle(color: Color(0xFF5D6B6B), height: 1.45),
+            child: Text(
+              widget.introText,
+              style: const TextStyle(color: Color(0xFF5D6B6B), height: 1.45),
             ),
           ),
           const SizedBox(height: 20),
@@ -392,43 +403,67 @@ class _TenantProfileEditPageState extends State<TenantProfileEditPage> {
             keyboardType: TextInputType.phone,
           ),
           const SizedBox(height: 16),
-          _InputField(
-            controller: _photoController,
-            label: 'URL foto profil',
-            hintText: 'Tempel link foto profil',
-            keyboardType: TextInputType.url,
+          _UploadImageCard(
+            label: 'Foto profil',
+            hint:
+                'Upload foto profil dari galeri, tidak perlu tempel URL lagi.',
+            imageUrl: _photoController.text.trim(),
+            imageBytes: _selectedPhotoBytes,
+            fileName: _selectedPhotoName,
+            onPick: _pickProfilePhoto,
           ),
           const SizedBox(height: 16),
-          _InputField(
-            controller: _passwordController,
-            label: 'Password baru',
-            hintText: 'Kosongkan jika tidak ingin mengubah password',
-            obscureText: true,
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) => TenantPasswordChangePage(
+                      pageTitle: widget.passwordPageTitle,
+                    ),
+                  ),
+                );
+              },
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                side: const BorderSide(color: Color(0xFFB8D7D7)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
+                ),
+              ),
+              icon: const Icon(Icons.lock_reset_rounded),
+              label: const Text('Ubah Password'),
+            ),
           ),
         ],
       ),
       bottomSheet: SafeArea(
         minimum: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        child: FilledButton(
-          onPressed: _saving ? null : _save,
-          style: FilledButton.styleFrom(
-            backgroundColor: const Color(0xFF006A6A),
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
+        child: SizedBox(
+          width: double.infinity,
+          child: FilledButton(
+            onPressed: _saving ? null : _save,
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF006A6A),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
             ),
+            child: _saving
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Text('Simpan Perubahan'),
           ),
-          child: _saving
-              ? const SizedBox(
-                  height: 20,
-                  width: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
-                  ),
-                )
-              : const Text('Simpan Perubahan'),
         ),
       ),
     );
@@ -456,16 +491,23 @@ class _TenantProfileEditPageState extends State<TenantProfileEditPage> {
       return;
     }
 
+    var photoUrl = _photoController.text.trim();
     setState(() => _saving = true);
     try {
+      if (_selectedPhotoBytes != null && _selectedPhotoName != null) {
+        photoUrl = await SupabaseService.instance.uploadPublicImage(
+          user: user,
+          bytes: _selectedPhotoBytes!,
+          fileName: _selectedPhotoName!,
+          folder: 'profile-images',
+        );
+        _photoController.text = photoUrl;
+      }
       await SupabaseService.instance.updateTenantProfile(
         user: user,
         name: name,
         phoneNumber: phone,
-        photoUrl: _photoController.text.trim(),
-        newPassword: _passwordController.text.trim().isEmpty
-            ? null
-            : _passwordController.text.trim(),
+        photoUrl: photoUrl,
       );
       if (!mounted) {
         return;
@@ -496,6 +538,187 @@ class _TenantProfileEditPageState extends State<TenantProfileEditPage> {
         context,
         title: 'Profil gagal disimpan',
         message: _supabaseMessage(error),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _saving = false);
+      }
+    }
+  }
+
+  Future<void> _pickProfilePhoto() async {
+    final file = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 88,
+    );
+    if (file == null) {
+      return;
+    }
+
+    final bytes = await file.readAsBytes();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _selectedPhotoBytes = bytes;
+      _selectedPhotoName = file.name;
+    });
+  }
+}
+
+class TenantPasswordChangePage extends StatefulWidget {
+  const TenantPasswordChangePage({super.key, this.pageTitle = 'Ubah Password'});
+
+  final String pageTitle;
+
+  @override
+  State<TenantPasswordChangePage> createState() =>
+      _TenantPasswordChangePageState();
+}
+
+class _TenantPasswordChangePageState extends State<TenantPasswordChangePage> {
+  final _newPasswordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _newPasswordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.pageTitle),
+        backgroundColor: Colors.white,
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
+        children: [
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: const Text(
+              'Masukkan password baru lalu konfirmasi ulang agar perubahan password lebih aman.',
+              style: TextStyle(color: Color(0xFF5D6B6B), height: 1.45),
+            ),
+          ),
+          const SizedBox(height: 20),
+          _InputField(
+            controller: _newPasswordController,
+            label: 'Password baru',
+            hintText: 'Masukkan password baru',
+            obscureText: true,
+          ),
+          const SizedBox(height: 16),
+          _InputField(
+            controller: _confirmPasswordController,
+            label: 'Konfirmasi password',
+            hintText: 'Ulangi password baru',
+            obscureText: true,
+          ),
+        ],
+      ),
+      bottomSheet: SafeArea(
+        minimum: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        child: SizedBox(
+          width: double.infinity,
+          child: FilledButton(
+            onPressed: _saving ? null : _savePassword,
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF006A6A),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+            ),
+            child: _saving
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Text('Simpan Password Baru'),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _savePassword() async {
+    final user = SupabaseAuth.instance.currentUser;
+    if (user == null) {
+      _showLightDialog(
+        context,
+        title: 'Sesi tidak ditemukan',
+        message: 'Silakan login ulang untuk mengubah password.',
+      );
+      return;
+    }
+
+    final newPassword = _newPasswordController.text.trim();
+    final confirmPassword = _confirmPasswordController.text.trim();
+
+    if (newPassword.isEmpty || confirmPassword.isEmpty) {
+      _showLightDialog(
+        context,
+        title: 'Password belum lengkap',
+        message: 'Password baru dan konfirmasi password wajib diisi.',
+      );
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      _showLightDialog(
+        context,
+        title: 'Password terlalu pendek',
+        message: 'Gunakan minimal 6 karakter untuk password baru.',
+      );
+      return;
+    }
+
+    if (newPassword != confirmPassword) {
+      _showLightDialog(
+        context,
+        title: 'Konfirmasi tidak cocok',
+        message: 'Konfirmasi password harus sama dengan password baru.',
+      );
+      return;
+    }
+
+    setState(() => _saving = true);
+    try {
+      await user.updatePassword(newPassword);
+      if (!mounted) {
+        return;
+      }
+      await _showLightDialog(
+        context,
+        title: 'Password diperbarui',
+        message: 'Password baru berhasil disimpan.',
+      );
+      if (!mounted) {
+        return;
+      }
+      Navigator.pop(context);
+    } on SupabaseAuthException catch (error) {
+      if (!mounted) {
+        return;
+      }
+      _showLightDialog(
+        context,
+        title: 'Password belum bisa diubah',
+        message: error.message ?? 'Silakan login ulang lalu coba lagi.',
       );
     } finally {
       if (mounted) {

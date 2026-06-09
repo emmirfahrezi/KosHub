@@ -1,5 +1,47 @@
 part of '../../main.dart';
 
+bool _roomBlocksAvailability(String status) =>
+    status != 'Dibatalkan' && status != 'Selesai';
+
+bool _roomIsOccupied(String status) => status == 'Sudah Check-in';
+
+String _roomAvailabilityLabel(BookingData? booking) {
+  if (booking == null || booking.id.isEmpty) {
+    return 'Tersedia';
+  }
+  return _roomIsOccupied(booking.status) ? 'Terisi' : 'Dibooking';
+}
+
+String _roomAvailabilitySubtitle(BookingData? booking) {
+  if (booking == null || booking.id.isEmpty) {
+    return 'Kamar kosong dan siap diisi';
+  }
+  if (_roomIsOccupied(booking.status)) {
+    return '${booking.userName} - sampai ${booking.endDate}';
+  }
+  return '${booking.userName} - masuk ${booking.startDate}';
+}
+
+BookingData? _latestRoomBooking(
+  List<BookingData> bookings,
+  String roomLabel, {
+  bool onlyActive = false,
+}) {
+  final matches =
+      bookings
+          .where(
+            (booking) =>
+                booking.roomLabel == roomLabel &&
+                (!onlyActive || _roomBlocksAvailability(booking.status)),
+          )
+          .toList()
+        ..sort((a, b) => b.sortKey.compareTo(a.sortKey));
+  if (matches.isEmpty) {
+    return null;
+  }
+  return matches.first;
+}
+
 class OwnerRoomsPage extends StatelessWidget {
   const OwnerRoomsPage({super.key});
 
@@ -40,19 +82,41 @@ class OwnerRoomsPage extends StatelessWidget {
             }
 
             final bookings = bookingsSnapshot.data ?? const <BookingData>[];
-            final activeResidents = bookings
-                .where((booking) => booking.status == 'Sudah Check-in')
+            final activeRoomBookings = bookings
+                .where((booking) => _roomBlocksAvailability(booking.status))
                 .toList();
-            final totalRooms = math.max(kos.totalRooms, activeResidents.length);
-            final generatedRooms = List.generate(totalRooms, (index) {
-              final roomLabel =
-                  'Kamar ${(index + 1).toString().padLeft(2, '0')}';
-              final resident = activeResidents.firstWhere(
-                (booking) => booking.roomLabel == roomLabel,
-                orElse: () => BookingData.empty(roomLabel, kos),
-              );
-              return resident;
-            });
+            final totalRooms = math.max(
+              kos.totalRooms,
+              activeRoomBookings.length,
+            );
+            final roomLabels = <String>[
+              ...List.generate(
+                totalRooms,
+                (index) => 'Kamar ${(index + 1).toString().padLeft(2, '0')}',
+              ),
+              ...bookings
+                  .map((booking) => booking.roomLabel.trim())
+                  .where((label) => label.isNotEmpty && label != '-'),
+            ];
+            final seenRoomLabels = <String>{};
+            final orderedRoomLabels = roomLabels
+                .where((label) => seenRoomLabels.add(label))
+                .toList();
+            final currentRoomBookings = orderedRoomLabels
+                .map(
+                  (roomLabel) =>
+                      _latestRoomBooking(bookings, roomLabel, onlyActive: true),
+                )
+                .whereType<BookingData>()
+                .toList();
+            final occupiedCount = currentRoomBookings
+                .where((booking) => _roomIsOccupied(booking.status))
+                .length;
+            final bookedCount = currentRoomBookings.length - occupiedCount;
+            final availableCount = math.max(
+              orderedRoomLabels.length - currentRoomBookings.length,
+              0,
+            );
 
             return Scaffold(
               appBar: AppBar(
@@ -92,10 +156,9 @@ class OwnerRoomsPage extends StatelessWidget {
                           runSpacing: 8,
                           children: [
                             _SmallPill(label: 'Mode ${kos.approvalMode}'),
-                            _SmallPill(label: '${kos.availableRooms} tersedia'),
-                            _SmallPill(
-                              label: '${activeResidents.length} terisi',
-                            ),
+                            _SmallPill(label: '$availableCount tersedia'),
+                            _SmallPill(label: '$bookedCount dibooking'),
+                            _SmallPill(label: '$occupiedCount terisi'),
                           ],
                         ),
                         const SizedBox(height: 16),
@@ -121,16 +184,25 @@ class OwnerRoomsPage extends StatelessWidget {
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 12),
-                  ...generatedRooms.map((resident) {
-                    final occupied = resident.id.isNotEmpty;
+                  ...orderedRoomLabels.map((roomLabel) {
+                    final currentBooking = _latestRoomBooking(
+                      bookings,
+                      roomLabel,
+                      onlyActive: true,
+                    );
+                    final occupied =
+                        currentBooking != null &&
+                        _roomIsOccupied(currentBooking.status);
+                    final booked =
+                        currentBooking != null &&
+                        currentBooking.id.isNotEmpty &&
+                        !occupied;
                     final roomHistory =
                         bookings
-                            .where(
-                              (booking) =>
-                                  booking.roomLabel == resident.roomLabel,
-                            )
+                            .where((booking) => booking.roomLabel == roomLabel)
                             .toList()
                           ..sort((a, b) => b.sortKey.compareTo(a.sortKey));
+
                     return InkWell(
                       onTap: () {
                         Navigator.push(
@@ -138,8 +210,8 @@ class OwnerRoomsPage extends StatelessWidget {
                           MaterialPageRoute<void>(
                             builder: (_) => RoomDetailPage(
                               kos: kos,
-                              roomLabel: resident.roomLabel,
-                              currentResident: occupied ? resident : null,
+                              roomLabel: roomLabel,
+                              currentResident: currentBooking,
                               history: roomHistory,
                             ),
                           ),
@@ -161,15 +233,21 @@ class OwnerRoomsPage extends StatelessWidget {
                               decoration: BoxDecoration(
                                 color: occupied
                                     ? const Color(0xFFEAF5F5)
+                                    : booked
+                                    ? const Color(0xFFEAF1FF)
                                     : const Color(0xFFFFF5DD),
                                 borderRadius: BorderRadius.circular(16),
                               ),
                               child: Icon(
                                 occupied
                                     ? Icons.person_rounded
+                                    : booked
+                                    ? Icons.schedule_rounded
                                     : Icons.meeting_room_outlined,
                                 color: occupied
                                     ? const Color(0xFF006A6A)
+                                    : booked
+                                    ? const Color(0xFF35589F)
                                     : const Color(0xFFB78103),
                               ),
                             ),
@@ -179,16 +257,14 @@ class OwnerRoomsPage extends StatelessWidget {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    resident.roomLabel,
+                                    roomLabel,
                                     style: const TextStyle(
                                       fontWeight: FontWeight.w800,
                                     ),
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    occupied
-                                        ? '${resident.userName} - sampai ${resident.endDate}'
-                                        : 'Kamar kosong dan siap diisi',
+                                    _roomAvailabilitySubtitle(currentBooking),
                                     style: const TextStyle(
                                       color: Color(0xFF5D6B6B),
                                     ),
@@ -197,7 +273,7 @@ class OwnerRoomsPage extends StatelessWidget {
                               ),
                             ),
                             _StatusBadge(
-                              label: occupied ? 'Terisi' : 'Tersedia',
+                              label: _roomAvailabilityLabel(currentBooking),
                             ),
                           ],
                         ),

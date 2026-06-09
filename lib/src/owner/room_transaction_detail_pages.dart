@@ -150,7 +150,18 @@ class RoomDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final occupied = currentResident != null && currentResident!.id.isNotEmpty;
+    final hasBooking =
+        currentResident != null && currentResident!.id.isNotEmpty;
+    final occupied = hasBooking && _roomIsOccupied(currentResident!.status);
+    final booked = hasBooking && !occupied;
+    final roomStatus = _roomAvailabilityLabel(currentResident);
+    final roomStatusDescription = occupied
+        ? 'Aktif ditempati'
+        : booked
+        ? currentResident!.status == 'Sudah Dikonfirmasi'
+              ? 'Sudah dibooking dan siap check-in'
+              : 'Sedang dibooking dan menunggu proses owner'
+        : 'Siap dipasarkan';
 
     return Scaffold(
       appBar: AppBar(
@@ -172,7 +183,7 @@ class RoomDetailPage extends StatelessWidget {
           _OwnerDetailHeader(
             title: roomLabel,
             subtitle: kos.name,
-            badge: occupied ? 'Terisi' : 'Tersedia',
+            badge: roomStatus,
           ),
           const SizedBox(height: 16),
           _OwnerSectionCard(
@@ -181,8 +192,12 @@ class RoomDetailPage extends StatelessWidget {
             child: Column(
               children: [
                 _SummaryRow(
-                  label: 'Penghuni sekarang',
-                  value: occupied ? currentResident!.userName : 'Belum ada',
+                  label: occupied
+                      ? 'Penghuni sekarang'
+                      : booked
+                      ? 'Calon penghuni'
+                      : 'Penghuni sekarang',
+                  value: hasBooking ? currentResident!.userName : 'Belum ada',
                 ),
                 const SizedBox(height: 6),
                 _SummaryRow(
@@ -190,9 +205,21 @@ class RoomDetailPage extends StatelessWidget {
                   value: '${_currency(kos.price)} / bulan',
                 ),
                 const SizedBox(height: 6),
+                if (hasBooking) ...[
+                  _SummaryRow(
+                    label: 'Tanggal masuk',
+                    value: currentResident!.startDate,
+                  ),
+                  const SizedBox(height: 6),
+                  _SummaryRow(
+                    label: 'Durasi sewa',
+                    value: currentResident!.durationLabel,
+                  ),
+                  const SizedBox(height: 6),
+                ],
                 _SummaryRow(
                   label: 'Status kamar',
-                  value: occupied ? 'Aktif ditempati' : 'Siap dipasarkan',
+                  value: roomStatusDescription,
                 ),
                 const SizedBox(height: 12),
                 Align(
@@ -228,8 +255,9 @@ class RoomDetailPage extends StatelessWidget {
                           Navigator.push(
                             context,
                             MaterialPageRoute<void>(
-                              builder: (_) =>
-                                  ResidentDetailPage(booking: booking),
+                              builder: (_) => booking.status == 'Sudah Check-in'
+                                  ? ResidentDetailPage(booking: booking)
+                                  : OwnerBookingDetailPage(booking: booking),
                             ),
                           );
                         },
@@ -256,28 +284,48 @@ class RoomDetailPage extends StatelessWidget {
               },
               child: const Text('Edit Kamar'),
             ),
-            OutlinedButton(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      'Pengaturan ketersediaan kamar akan tersedia di pembaruan berikutnya.',
+            if (hasBooking)
+              OutlinedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (_) => occupied
+                          ? ResidentDetailPage(booking: currentResident!)
+                          : OwnerBookingDetailPage(booking: currentResident!),
                     ),
-                  ),
-                );
-              },
-              child: const Text('Nonaktifkan'),
-            ),
-            FilledButton(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Kamar ditandai maintenance secara lokal.'),
-                  ),
-                );
-              },
-              child: const Text('Maintenance'),
-            ),
+                  );
+                },
+                child: Text(occupied ? 'Lihat Penghuni' : 'Lihat Booking'),
+              ),
+            if (booked && currentResident!.status == 'Sudah Dikonfirmasi')
+              FilledButton(
+                onPressed: () async {
+                  try {
+                    await SupabaseService.instance.updateBookingStatus(
+                      booking: currentResident!,
+                      status: 'Sudah Check-in',
+                    );
+                    if (!context.mounted) {
+                      return;
+                    }
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Kamar berhasil ditandai sudah diisi.'),
+                      ),
+                    );
+                    Navigator.pop(context);
+                  } on SupabaseAppException catch (error) {
+                    if (!context.mounted) {
+                      return;
+                    }
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(_supabaseMessage(error))),
+                    );
+                  }
+                },
+                child: const Text('Tandai Sudah Diisi'),
+              ),
           ],
         ),
       ),

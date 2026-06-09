@@ -181,9 +181,7 @@ class SupabaseService {
     required String photoUrl,
     String? newPassword,
   }) async {
-    if (name.trim().isNotEmpty) {
-      await user.updateDisplayName(name.trim());
-    }
+    await user.updateProfile(displayName: name, photoUrl: photoUrl);
     if (newPassword != null && newPassword.trim().isNotEmpty) {
       await user.updatePassword(newPassword.trim());
     }
@@ -197,6 +195,52 @@ class SupabaseService {
           'photo_url': photoUrl.trim(),
         })
         .eq('id', user.id);
+  }
+
+  Future<void> updateOwnerBankAccount({
+    required User user,
+    required String bankAccount,
+  }) async {
+    final value = bankAccount.trim();
+    try {
+      await _client
+          .from('profiles')
+          .update({'bank_account': value})
+          .eq('id', user.id);
+
+      try {
+        await _client
+            .from('kos')
+            .update({'bank_account': value})
+            .eq('owner_id', user.id);
+      } on supabase.PostgrestException catch (error) {
+        final message = error.message.toLowerCase();
+        if (message.contains('bank_account') &&
+            (message.contains('column') || message.contains('schema cache'))) {
+          throw SupabaseAppException(
+            plugin: 'supabase',
+            code: 'kos-bank-account-column-missing',
+            message:
+                'Rekening tersimpan di profil owner, tapi tabel kos di database belum punya kolom `bank_account`. Jalankan update schema Supabase dulu agar rekening bisa tampil di halaman booking.',
+          );
+        }
+        rethrow;
+      }
+    } on SupabaseAppException {
+      rethrow;
+    } on supabase.PostgrestException catch (error) {
+      throw SupabaseAppException(
+        plugin: 'supabase',
+        code: error.code ?? 'postgrest-error',
+        message: error.message,
+      );
+    } catch (_) {
+      throw SupabaseAppException(
+        plugin: 'supabase',
+        code: 'update-owner-bank-account-failed',
+        message: 'Rekening pembayaran belum berhasil disimpan. Coba lagi.',
+      );
+    }
   }
 
   Future<void> registerOwnerKos({
@@ -260,6 +304,7 @@ class SupabaseService {
       'owner_name': ownerName,
       'owner_status': 'Menunggu aktivasi admin',
       'owner_photo': user.photoURL ?? photoUrl,
+      'bank_account': bankAccount,
       'nama_kos': kosName,
       'area': area,
       'alamat': address,
@@ -354,6 +399,7 @@ class SupabaseService {
               ? 'Online'
               : 'Menunggu aktivasi admin',
           'owner_photo': user.photoURL ?? photoUrl,
+          'bank_account': bankAccount,
           'nama_kos': kosName,
           'area': area,
           'alamat': address,
@@ -381,6 +427,31 @@ class SupabaseService {
           }
           return AppUserData.fromMap(uid, _asStringMap(rows.first)!);
         });
+  }
+
+  Future<AppUserData?> fetchUserProfile(String userId) async {
+    final row = await _profileMap(userId);
+    if (row == null) {
+      return null;
+    }
+    return AppUserData.fromMap(userId, row);
+  }
+
+  Future<KosData?> fetchKosById(String kosId) async {
+    return _resolveKosData(kosId: kosId, fallbackMap: null);
+  }
+
+  Future<KosData?> fetchOwnerKosByOwnerId(String ownerId) async {
+    final rows = await _client
+        .from('kos')
+        .select()
+        .eq('owner_id', ownerId)
+        .eq('status', 'active');
+    final items = rows
+        .map((row) => KosData.fromMap(row['id'].toString(), row))
+        .toList();
+    items.sort((a, b) => a.name.compareTo(b.name));
+    return items.isEmpty ? null : items.first;
   }
 
   Stream<KosData?> ownerKosStream(String ownerId) {
@@ -1024,6 +1095,80 @@ class SupabaseService {
         .from('bookings')
         .update({'owner_notes': notes})
         .eq('id', bookingId);
+  }
+
+  Future<ReviewData?> fetchBookingReview(String bookingId) async {
+    final row = await _client
+        .from('kos_reviews')
+        .select()
+        .eq('booking_id', bookingId)
+        .maybeSingle();
+    if (row == null) {
+      return null;
+    }
+    return ReviewData.fromMap(row['id'].toString(), row);
+  }
+
+  Future<void> submitBookingReview({
+    required BookingData booking,
+    required int rating,
+    required String comment,
+  }) async {
+    final user = SupabaseAuth.instance.currentUser;
+    if (user == null) {
+      throw SupabaseAppException(
+        plugin: 'supabase',
+        code: 'unauthenticated',
+        message: 'Silakan login ulang untuk mengirim rating.',
+      );
+    }
+    if (booking.userId != user.id) {
+      throw SupabaseAppException(
+        plugin: 'supabase',
+        code: 'permission-denied',
+        message: 'Hanya penyewa terkait yang bisa memberi rating booking ini.',
+      );
+    }
+    if (booking.status != 'Selesai') {
+      throw SupabaseAppException(
+        plugin: 'supabase',
+        code: 'unavailable',
+        message:
+            'Rating baru bisa diberikan setelah masa sewa selesai dan booking masuk riwayat.',
+      );
+    }
+    if (rating < 1 || rating > 5) {
+      throw SupabaseAppException(
+        plugin: 'supabase',
+        code: 'invalid-argument',
+        message: 'Pilih rating antara 1 sampai 5 bintang.',
+      );
+    }
+
+    try {
+      await _client.from('kos_reviews').upsert({
+        'booking_id': booking.id,
+        'kos_id': booking.kos.id,
+        'owner_id': booking.kos.ownerId,
+        'user_id': booking.userId,
+        'user_name': booking.userName,
+        'user_photo': booking.userPhoto,
+        'rating': rating,
+        'comment': comment.trim(),
+      }, onConflict: 'booking_id');
+    } on supabase.PostgrestException catch (error) {
+      throw SupabaseAppException(
+        plugin: 'supabase',
+        code: error.code ?? 'postgrest-error',
+        message: error.message,
+      );
+    } catch (_) {
+      throw SupabaseAppException(
+        plugin: 'supabase',
+        code: 'submit-review-failed',
+        message: 'Ulasan belum berhasil disimpan. Coba lagi.',
+      );
+    }
   }
 
   Future<void> extendBooking({

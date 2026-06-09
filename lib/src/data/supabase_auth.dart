@@ -1,7 +1,11 @@
 part of '../../main.dart';
 
 class SupabaseAppException implements Exception {
-  SupabaseAppException({required this.plugin, required this.code, this.message});
+  SupabaseAppException({
+    required this.plugin,
+    required this.code,
+    this.message,
+  });
 
   final String plugin;
   final String code;
@@ -63,6 +67,23 @@ class User {
   Future<void> updateDisplayName(String name) async {
     await supabase.Supabase.instance.client.auth.updateUser(
       supabase.UserAttributes(data: {'name': name}),
+    );
+  }
+
+  Future<void> updateProfile({String? displayName, String? photoUrl}) async {
+    final data = <String, dynamic>{};
+    if (displayName != null && displayName.trim().isNotEmpty) {
+      data['name'] = displayName.trim();
+    }
+    if (photoUrl != null) {
+      data['photo_url'] = photoUrl.trim();
+    }
+    if (data.isEmpty) {
+      return;
+    }
+
+    await supabase.Supabase.instance.client.auth.updateUser(
+      supabase.UserAttributes(data: data),
     );
   }
 

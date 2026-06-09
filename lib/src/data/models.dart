@@ -20,6 +20,7 @@ class KosData {
     required this.ownerName,
     required this.ownerStatus,
     required this.ownerPhoto,
+    required this.ownerBankAccount,
     required this.listingStatus,
   });
 
@@ -41,6 +42,7 @@ class KosData {
   final String ownerName;
   final String ownerStatus;
   final String ownerPhoto;
+  final String ownerBankAccount;
   final String listingStatus;
 
   bool get isPublished => listingStatus == 'active';
@@ -87,6 +89,7 @@ class KosData {
       ownerName: map['owner_name'] as String? ?? 'Pemilik Kos',
       ownerStatus: map['owner_status'] as String? ?? 'Online',
       ownerPhoto: map['owner_photo'] as String? ?? '',
+      ownerBankAccount: map['bank_account'] as String? ?? '',
       listingStatus: map['status'] as String? ?? 'active',
     );
   }
@@ -97,6 +100,7 @@ class KosData {
       'owner_name': ownerName,
       'owner_status': ownerStatus,
       'owner_photo': ownerPhoto,
+      'bank_account': ownerBankAccount,
       'nama_kos': name,
       'area': area,
       'alamat': address,
@@ -651,6 +655,54 @@ class BookingData {
       ownerNotes: (map['owner_notes'] as List<dynamic>? ?? const [])
           .map((item) => item.toString())
           .toList(),
+    );
+  }
+}
+
+class ReviewData {
+  const ReviewData({
+    required this.id,
+    required this.bookingId,
+    required this.kosId,
+    required this.ownerId,
+    required this.userId,
+    required this.userName,
+    required this.userPhoto,
+    required this.rating,
+    required this.comment,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  final String id;
+  final String bookingId;
+  final String kosId;
+  final String ownerId;
+  final String userId;
+  final String userName;
+  final String userPhoto;
+  final int rating;
+  final String comment;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  factory ReviewData.fromMap(String id, Map<String, dynamic> map) {
+    return ReviewData(
+      id: id,
+      bookingId: map['booking_id'] as String? ?? '',
+      kosId: map['kos_id'] as String? ?? '',
+      ownerId: map['owner_id'] as String? ?? '',
+      userId: map['user_id'] as String? ?? '',
+      userName: map['user_name'] as String? ?? 'Penyewa',
+      userPhoto: map['user_photo'] as String? ?? '',
+      rating: (map['rating'] as num?)?.toInt() ?? 0,
+      comment: map['comment'] as String? ?? '',
+      createdAt:
+          _parseNullableStoredDate(map['created_at']) ??
+          DateTime.fromMillisecondsSinceEpoch(0),
+      updatedAt:
+          _parseNullableStoredDate(map['updated_at']) ??
+          DateTime.fromMillisecondsSinceEpoch(0),
     );
   }
 }

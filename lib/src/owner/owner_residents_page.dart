@@ -16,13 +16,16 @@ class OwnerResidentsPage extends StatefulWidget {
 
 class _OwnerResidentsPageState extends State<OwnerResidentsPage> {
   late final TextEditingController _searchController;
+  late final Stream<List<BookingData>> _bookingsStream;
   String _query = '';
 
   @override
   void initState() {
     super.initState();
+    final user = SupabaseAuth.instance.currentUser!;
     _query = widget.initialQuery;
     _searchController = TextEditingController(text: widget.initialQuery);
+    _bookingsStream = SupabaseService.instance.ownerBookingsStream(user.id);
   }
 
   @override
@@ -33,11 +36,9 @@ class _OwnerResidentsPageState extends State<OwnerResidentsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final user = SupabaseAuth.instance.currentUser!;
-
     return DefaultTabController(
-      length: 4,
-      initialIndex: widget.initialTab.clamp(0, 3),
+      length: 3,
+      initialIndex: widget.initialTab.clamp(0, 2),
       child: Scaffold(
         appBar: AppBar(
           backgroundColor: Colors.white,
@@ -48,12 +49,11 @@ class _OwnerResidentsPageState extends State<OwnerResidentsPage> {
               Tab(text: 'Aktif'),
               Tab(text: 'Akan Keluar'),
               Tab(text: 'Riwayat'),
-              Tab(text: 'Blacklist'),
             ],
           ),
         ),
         body: StreamBuilder<List<BookingData>>(
-          stream: SupabaseService.instance.ownerBookingsStream(user.id),
+          stream: _bookingsStream,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const _LoadingScreen(label: 'Memuat data penghuni...');
@@ -77,11 +77,6 @@ class _OwnerResidentsPageState extends State<OwnerResidentsPage> {
                       booking.status == 'Dibatalkan',
                 )
                 .toList();
-            final blacklist = bookings
-                .where(
-                  (booking) => booking.cancelReason == 'Tidak sesuai aturan',
-                )
-                .toList();
 
             return Column(
               children: [
@@ -100,7 +95,7 @@ class _OwnerResidentsPageState extends State<OwnerResidentsPage> {
                       decoration: const InputDecoration(
                         prefixIcon: Icon(Icons.search_rounded),
                         hintText:
-                            'Cari nama penghuni, kamar, atau status bayar...',
+                            'Cari nama penghuni, kamar, atau status booking...',
                         border: InputBorder.none,
                       ),
                     ),
@@ -115,7 +110,6 @@ class _OwnerResidentsPageState extends State<OwnerResidentsPage> {
                       ),
                       _buildResidents(_filterResidents(leavingSoon)),
                       _buildResidents(_filterResidents(history)),
-                      _buildResidents(_filterResidents(blacklist)),
                     ],
                   ),
                 ),
@@ -196,7 +190,7 @@ class _OwnerResidentsPageState extends State<OwnerResidentsPage> {
                               ],
                             ),
                           ),
-                          _StatusBadge(label: booking.paymentStatus),
+                          _StatusBadge(label: booking.status),
                         ],
                       ),
                       const SizedBox(height: 14),
@@ -240,37 +234,6 @@ class _OwnerResidentsPageState extends State<OwnerResidentsPage> {
                           spacing: 8,
                           runSpacing: 8,
                           children: [
-                            PopupMenuButton<String>(
-                              onSelected: (value) =>
-                                  _updatePaymentStatus(booking, value),
-                              itemBuilder: (context) {
-                                return _paymentStatuses
-                                    .map(
-                                      (status) => PopupMenuItem<String>(
-                                        value: status,
-                                        child: Text(status),
-                                      ),
-                                    )
-                                    .toList();
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 12,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFEAF5F5),
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                child: Text(
-                                  'Ubah Status Bayar',
-                                  style: const TextStyle(
-                                    color: Color(0xFF006A6A),
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                            ),
                             FilledButton(
                               onPressed: () => _finishResident(booking),
                               child: const Text('Pindah ke Riwayat'),
@@ -286,31 +249,6 @@ class _OwnerResidentsPageState extends State<OwnerResidentsPage> {
           }),
       ],
     );
-  }
-
-  Future<void> _updatePaymentStatus(
-    BookingData booking,
-    String paymentStatus,
-  ) async {
-    try {
-      await SupabaseService.instance.updateBookingPaymentStatus(
-        bookingId: booking.id,
-        paymentStatus: paymentStatus,
-      );
-      if (!mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Status pembayaran diubah ke $paymentStatus.')),
-      );
-    } on SupabaseAppException catch (error) {
-      if (!mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(_supabaseMessage(error))));
-    }
   }
 
   Future<void> _finishResident(BookingData booking) async {
@@ -342,7 +280,6 @@ class _OwnerResidentsPageState extends State<OwnerResidentsPage> {
     return bookings.where((booking) {
       return booking.userName.toLowerCase().contains(_query) ||
           booking.roomLabel.toLowerCase().contains(_query) ||
-          booking.paymentStatus.toLowerCase().contains(_query) ||
           booking.status.toLowerCase().contains(_query);
     }).toList();
   }

@@ -12,9 +12,12 @@ class BookingFormPage extends StatefulWidget {
 class _BookingFormPageState extends State<BookingFormPage> {
   final _picker = ImagePicker();
   late final TextEditingController _startDateController;
+  Future<_OwnerTransferInfo>? _transferInfoFuture;
   final _phoneController = TextEditingController();
   final _emergencyController = TextEditingController();
-  final _roomController = TextEditingController(text: 'Kamar 01');
+  final _roomController = TextEditingController(
+    text: 'Dipilih otomatis saat booking dikonfirmasi',
+  );
   final _noteController = TextEditingController();
   final _proofController = TextEditingController();
   Uint8List? _selectedProofBytes;
@@ -28,6 +31,7 @@ class _BookingFormPageState extends State<BookingFormPage> {
   void initState() {
     super.initState();
     _selectedStartDate = DateTime.now().add(const Duration(days: 3));
+    _transferInfoFuture = _fetchOwnerTransferInfo();
     _startDateController = TextEditingController(
       text: _formatLongDate(_selectedStartDate),
     );
@@ -86,9 +90,9 @@ class _BookingFormPageState extends State<BookingFormPage> {
                         ),
                       ),
                       const SizedBox(height: 6),
-                      const Text(
-                        'Kamar Demo',
-                        style: TextStyle(color: Color(0xFF5D6B6B)),
+                      Text(
+                        '${widget.kos.availableRooms} kamar tersedia',
+                        style: const TextStyle(color: Color(0xFF5D6B6B)),
                       ),
                       const SizedBox(height: 8),
                       Text(
@@ -129,8 +133,9 @@ class _BookingFormPageState extends State<BookingFormPage> {
           const SizedBox(height: 16),
           _InputField(
             controller: _roomController,
-            label: 'Kamar dipilih',
-            hintText: 'Contoh: Kamar 01',
+            label: 'Nomor kamar',
+            hintText: 'Dipilih otomatis sesuai kamar yang masih kosong',
+            readOnly: true,
           ),
           const SizedBox(height: 16),
           _SelectCard(
@@ -143,8 +148,22 @@ class _BookingFormPageState extends State<BookingFormPage> {
           _SelectCard(
             label: 'Metode pembayaran',
             value: _selectedPayment,
-            items: const ['Transfer Bank', 'E-Wallet', 'Virtual Account'],
+            items: const ['Transfer Bank'],
             onChanged: (value) => setState(() => _selectedPayment = value),
+          ),
+          const SizedBox(height: 16),
+          FutureBuilder<_OwnerTransferInfo>(
+            future: _ensureTransferInfoFuture(),
+            builder: (context, snapshot) {
+              final transferInfo = snapshot.data;
+              return _buildTransferInfoCard(
+                latestKos: transferInfo?.latestKos,
+                ownerProfile: transferInfo?.ownerProfile,
+                isLoading:
+                    snapshot.connectionState == ConnectionState.waiting &&
+                    transferInfo == null,
+              );
+            },
           ),
           const SizedBox(height: 16),
           _InputField(
@@ -157,7 +176,7 @@ class _BookingFormPageState extends State<BookingFormPage> {
           _UploadImageCard(
             label: 'Bukti pembayaran DP',
             hint:
-                'Upload bukti transfer DP dari galeri agar booking bisa diproses.',
+                'Upload bukti transfer DP dari galeri setelah transfer ke rekening pemilik di atas.',
             imageUrl: _proofController.text.trim(),
             imageBytes: _selectedProofBytes,
             fileName: _selectedProofName,
@@ -253,6 +272,68 @@ class _BookingFormPageState extends State<BookingFormPage> {
     );
   }
 
+  Widget _buildTransferInfoCard({
+    KosData? latestKos,
+    AppUserData? ownerProfile,
+    bool isLoading = false,
+  }) {
+    final bankAccount = _ownerBankAccount(
+      latestKos: latestKos,
+      ownerProfile: ownerProfile,
+    );
+    final ownerName = latestKos?.ownerName ?? widget.kos.ownerName;
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF4FAFF),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFD9E9F7)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Info Transfer',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 12),
+          if (isLoading && bankAccount == null) ...[
+            const Text(
+              'Memuat rekening penerima...',
+              style: TextStyle(
+                color: Color(0xFF5D6B6B),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ] else if (bankAccount == null) ...[
+            const Text(
+              'Pemilik kos belum mengisi rekening penerima.',
+              style: TextStyle(
+                color: Color(0xFF9F4035),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Minta pemilik melengkapi nama bank, nomor rekening, dan atas nama terlebih dulu sebelum upload bukti transfer.',
+              style: TextStyle(color: Color(0xFF5D6B6B), height: 1.45),
+            ),
+          ] else ...[
+            _SummaryRow(label: 'Pemilik', value: ownerName),
+            const SizedBox(height: 8),
+            _SummaryRow(label: 'Rekening penerima', value: bankAccount),
+            const SizedBox(height: 10),
+            const Text(
+              'Pastikan nomor rekening dan nama penerima sesuai sebelum upload bukti transfer DP.',
+              style: TextStyle(color: Color(0xFF5D6B6B), height: 1.45),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   Future<void> _pickProofImage() async {
     final file = await _picker.pickImage(
       source: ImageSource.gallery,
@@ -275,11 +356,20 @@ class _BookingFormPageState extends State<BookingFormPage> {
   Future<void> _createBooking() async {
     final phone = _phoneController.text.trim();
     final emergency = _emergencyController.text.trim();
-    final roomLabel = _roomController.text.trim();
     var proof = _proofController.text.trim();
     final hasProof = _selectedProofBytes != null || proof.isNotEmpty;
+    final transferInfo = await _ensureTransferInfoFuture();
+    if (!mounted) {
+      return;
+    }
+    final ownerBankAccount = _ownerBankAccount(
+      latestKos: transferInfo.latestKos,
+      ownerProfile: transferInfo.ownerProfile,
+    );
+    final availableRooms =
+        transferInfo.latestKos?.availableRooms ?? widget.kos.availableRooms;
 
-    if (widget.kos.availableRooms <= 0) {
+    if (availableRooms <= 0) {
       _showLightDialog(
         context,
         title: 'Kamar tidak tersedia',
@@ -287,12 +377,21 @@ class _BookingFormPageState extends State<BookingFormPage> {
       );
       return;
     }
-    if (phone.isEmpty || emergency.isEmpty || roomLabel.isEmpty || !hasProof) {
+    if (ownerBankAccount == null) {
+      _showLightDialog(
+        context,
+        title: 'Rekening belum tersedia',
+        message:
+            'Pemilik kos belum mengisi rekening penerima. Minta pemilik melengkapi data transfer dulu sebelum booking.',
+      );
+      return;
+    }
+    if (phone.isEmpty || emergency.isEmpty || !hasProof) {
       _showLightDialog(
         context,
         title: 'Data belum lengkap',
         message:
-            'Tanggal masuk, nomor HP, kontak darurat, kamar, dan bukti DP wajib diisi.',
+            'Tanggal masuk, nomor HP, kontak darurat, dan bukti DP wajib diisi.',
       );
       return;
     }
@@ -317,7 +416,7 @@ class _BookingFormPageState extends State<BookingFormPage> {
         startDateLabel: _startDateController.text.trim(),
         phoneNumber: phone,
         emergencyContact: emergency,
-        roomLabel: roomLabel,
+        roomLabel: '',
         note: _noteController.text.trim(),
         paymentProofUrl: proof,
       );
@@ -328,7 +427,7 @@ class _BookingFormPageState extends State<BookingFormPage> {
         context,
         title: 'Booking berhasil',
         message:
-            'Permintaan booking sudah dikirim. Silakan cek statusnya di menu Booking.',
+            'Permintaan booking sudah dikirim. Nomor kamar akan dipilih otomatis dan bisa dicek di menu Booking.',
       );
       if (!mounted) {
         return;
@@ -359,6 +458,51 @@ class _BookingFormPageState extends State<BookingFormPage> {
     }
   }
 
+  Future<_OwnerTransferInfo> _fetchOwnerTransferInfo() async {
+    KosData? latestKos;
+    AppUserData? ownerProfile;
+
+    try {
+      latestKos = await SupabaseService.instance.fetchKosById(widget.kos.id);
+    } catch (_) {}
+
+    if (latestKos == null) {
+      try {
+        latestKos = await SupabaseService.instance.fetchOwnerKosByOwnerId(
+          widget.kos.ownerId,
+        );
+      } catch (_) {}
+    }
+
+    try {
+      ownerProfile = await SupabaseService.instance.fetchUserProfile(
+        widget.kos.ownerId,
+      );
+    } catch (_) {}
+
+    return _OwnerTransferInfo(latestKos: latestKos, ownerProfile: ownerProfile);
+  }
+
+  Future<_OwnerTransferInfo> _ensureTransferInfoFuture() {
+    return _transferInfoFuture ??= _fetchOwnerTransferInfo();
+  }
+
+  String? _ownerBankAccount({KosData? latestKos, AppUserData? ownerProfile}) {
+    final latestListingValue = latestKos?.ownerBankAccount.trim() ?? '';
+    if (latestListingValue.isNotEmpty && latestListingValue != 'Belum diisi') {
+      return latestListingValue;
+    }
+    final listingValue = widget.kos.ownerBankAccount.trim();
+    if (listingValue.isNotEmpty && listingValue != 'Belum diisi') {
+      return listingValue;
+    }
+    final profileValue = ownerProfile?.bankAccountLabel.trim() ?? '';
+    if (profileValue.isNotEmpty && profileValue != 'Belum diisi') {
+      return profileValue;
+    }
+    return null;
+  }
+
   Future<void> _pickStartDate() async {
     final selectedDate = await showDatePicker(
       context: context,
@@ -375,6 +519,13 @@ class _BookingFormPageState extends State<BookingFormPage> {
       _startDateController.text = _formatLongDate(selectedDate);
     });
   }
+}
+
+class _OwnerTransferInfo {
+  const _OwnerTransferInfo({this.latestKos, this.ownerProfile});
+
+  final KosData? latestKos;
+  final AppUserData? ownerProfile;
 }
 
 class BookingHistoryPage extends StatelessWidget {
@@ -491,13 +642,38 @@ class BookingHistoryPage extends StatelessWidget {
   }
 }
 
-class BookingDetailPage extends StatelessWidget {
+class BookingDetailPage extends StatefulWidget {
   const BookingDetailPage({super.key, required this.booking});
 
   final BookingData booking;
 
   @override
+  State<BookingDetailPage> createState() => _BookingDetailPageState();
+}
+
+class _BookingDetailPageState extends State<BookingDetailPage> {
+  late Future<ReviewData?> _reviewFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _reviewFuture = SupabaseService.instance.fetchBookingReview(
+      widget.booking.id,
+    );
+  }
+
+  void _reloadReview() {
+    setState(() {
+      _reviewFuture = SupabaseService.instance.fetchBookingReview(
+        widget.booking.id,
+      );
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final booking = widget.booking;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Detail Booking'),
@@ -581,6 +757,54 @@ class BookingDetailPage extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
+          if (booking.status == 'Selesai') ...[
+            FutureBuilder<ReviewData?>(
+              future: _reviewFuture,
+              builder: (context, snapshot) {
+                final review = snapshot.data;
+                return _OwnerSectionCard(
+                  title: 'Ulasan kamu',
+                  subtitle:
+                      'Rating hanya bisa diberikan setelah booking selesai.',
+                  child: snapshot.connectionState == ConnectionState.waiting
+                      ? const Text(
+                          'Memuat ulasan...',
+                          style: TextStyle(color: Color(0xFF5D6B6B)),
+                        )
+                      : review == null
+                      ? const Text(
+                          'Belum ada rating untuk kos ini dari booking kamu.',
+                          style: TextStyle(color: Color(0xFF5D6B6B)),
+                        )
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _ReviewStarsDisplay(rating: review.rating),
+                            if (review.comment.trim().isNotEmpty) ...[
+                              const SizedBox(height: 10),
+                              Text(
+                                review.comment,
+                                style: const TextStyle(
+                                  color: Color(0xFF5D6B6B),
+                                  height: 1.45,
+                                ),
+                              ),
+                            ],
+                            const SizedBox(height: 10),
+                            Text(
+                              'Diperbarui ${_formatLongDate(review.updatedAt)}',
+                              style: const TextStyle(
+                                color: Color(0xFF839090),
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                );
+              },
+            ),
+            const SizedBox(height: 16),
+          ],
           _OwnerSectionCard(
             title: 'Catatan & bukti',
             subtitle: 'Informasi tambahan dari penyewa dan pemilik.',
@@ -653,6 +877,26 @@ class BookingDetailPage extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (booking.status == 'Selesai')
+                FutureBuilder<ReviewData?>(
+                  future: _reviewFuture,
+                  builder: (context, snapshot) {
+                    final review = snapshot.data;
+                    return _ActionBarButton(
+                      label: review == null ? 'Beri Rating' : 'Ubah Rating',
+                      icon: Icons.star_outline_rounded,
+                      onPressed:
+                          snapshot.connectionState == ConnectionState.waiting
+                          ? null
+                          : () => _openReviewSheet(
+                              context,
+                              booking: booking,
+                              existingReview: review,
+                            ),
+                    );
+                  },
+                ),
+              if (booking.status == 'Selesai') const SizedBox(height: 10),
               _ActionBarButton(
                 label: 'Chat Pemilik',
                 icon: Icons.chat_bubble_outline_rounded,
@@ -709,6 +953,184 @@ class BookingDetailPage extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  Future<void> _openReviewSheet(
+    BuildContext context, {
+    required BookingData booking,
+    ReviewData? existingReview,
+  }) async {
+    var selectedRating = existingReview?.rating ?? 5;
+    final commentController = TextEditingController(
+      text: existingReview?.comment ?? '',
+    );
+
+    final submitted = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      builder: (context) {
+        var saving = false;
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.fromLTRB(
+                20,
+                20,
+                20,
+                MediaQuery.of(context).viewInsets.bottom + 20,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    existingReview == null ? 'Beri rating kos' : 'Ubah rating',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Rating hanya tersedia setelah masa sewa selesai agar ulasan datang dari penyewa yang benar-benar pernah tinggal.',
+                    style: TextStyle(color: Color(0xFF5D6B6B), height: 1.45),
+                  ),
+                  const SizedBox(height: 16),
+                  _ReviewStarsInput(
+                    rating: selectedRating,
+                    onChanged: (value) {
+                      setModalState(() => selectedRating = value);
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: commentController,
+                    maxLines: 3,
+                    decoration: const InputDecoration(
+                      hintText:
+                          'Opsional, contoh: Kamarnya bersih dan owner responsif.',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: saving
+                          ? null
+                          : () async {
+                              setModalState(() => saving = true);
+                              try {
+                                await SupabaseService.instance
+                                    .submitBookingReview(
+                                      booking: booking,
+                                      rating: selectedRating,
+                                      comment: commentController.text,
+                                    );
+                                if (!context.mounted) {
+                                  return;
+                                }
+                                Navigator.pop(context, true);
+                              } on SupabaseAppException catch (error) {
+                                if (!context.mounted) {
+                                  return;
+                                }
+                                setModalState(() => saving = false);
+                                _showLightDialog(
+                                  context,
+                                  title: 'Rating belum tersimpan',
+                                  message: _supabaseMessage(error),
+                                );
+                              } catch (_) {
+                                if (!context.mounted) {
+                                  return;
+                                }
+                                setModalState(() => saving = false);
+                                _showLightDialog(
+                                  context,
+                                  title: 'Rating belum tersimpan',
+                                  message:
+                                      'Terjadi kendala saat menyimpan ulasan. Coba lagi.',
+                                );
+                              }
+                            },
+                      child: saving
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : Text(
+                              existingReview == null
+                                  ? 'Kirim Rating'
+                                  : 'Simpan Perubahan',
+                            ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+    commentController.dispose();
+
+    if (submitted == true && mounted) {
+      _reloadReview();
+      await _showLightDialog(
+        this.context,
+        title: 'Rating tersimpan',
+        message: 'Terima kasih, ulasan kamu sudah masuk.',
+      );
+    }
+  }
+}
+
+class _ReviewStarsDisplay extends StatelessWidget {
+  const _ReviewStarsDisplay({required this.rating});
+
+  final int rating;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: List.generate(5, (index) {
+        return Icon(
+          index < rating ? Icons.star_rounded : Icons.star_border_rounded,
+          color: const Color(0xFFF4B400),
+          size: 24,
+        );
+      }),
+    );
+  }
+}
+
+class _ReviewStarsInput extends StatelessWidget {
+  const _ReviewStarsInput({required this.rating, required this.onChanged});
+
+  final int rating;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: List.generate(5, (index) {
+        final value = index + 1;
+        return IconButton(
+          onPressed: () => onChanged(value),
+          icon: Icon(
+            value <= rating ? Icons.star_rounded : Icons.star_border_rounded,
+            color: const Color(0xFFF4B400),
+            size: 30,
+          ),
+        );
+      }),
     );
   }
 }

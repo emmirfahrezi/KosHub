@@ -42,6 +42,11 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
     super.initState();
     final user = SupabaseAuth.instance.currentUser;
     final existingKos = widget.existingKos;
+    final storedBankAccount =
+        widget.profile?.bankAccountLabel.trim().isNotEmpty == true &&
+            widget.profile?.bankAccountLabel != 'Belum diisi'
+        ? widget.profile!.bankAccountLabel
+        : existingKos?.ownerBankAccount ?? '';
     _ownerNameController.text =
         existingKos?.ownerName ?? user?.displayName ?? '';
     _kosNameController.text = existingKos?.name ?? '';
@@ -68,10 +73,7 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
     _emergencyController.text = widget.profile?.emergencyContact == '-'
         ? ''
         : widget.profile?.emergencyContact ?? '';
-    _bankAccountController.text =
-        widget.profile?.bankAccountLabel == 'Belum diisi'
-        ? ''
-        : widget.profile?.bankAccountLabel ?? '';
+    _bankAccountController.text = storedBankAccount;
     _paymentProofController.text =
         widget.profile?.activationPaymentProofUrl ?? '';
     _voucherController.text = widget.profile?.ownerVoucherCode ?? '';
@@ -427,7 +429,7 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
     final phoneNumber = _phoneController.text.trim();
     final ktpNumber = _ktpController.text.trim();
     final emergencyContact = _emergencyController.text.trim();
-    final bankAccount = _bankAccountController.text.trim();
+    final bankAccountInput = _bankAccountController.text.trim();
     final kosName = _kosNameController.text.trim();
     final area = _areaController.text.trim();
     final address = _addressController.text.trim();
@@ -445,6 +447,14 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
     final isApprovedOwner =
         widget.profile?.canAccessOwnerShell == true ||
         widget.existingKos?.listingStatus == 'active';
+    final storedBankAccount =
+        widget.profile?.bankAccountLabel.trim().isNotEmpty == true &&
+            widget.profile?.bankAccountLabel != 'Belum diisi'
+        ? widget.profile!.bankAccountLabel
+        : widget.existingKos?.ownerBankAccount.trim() ?? '';
+    final bankAccount = bankAccountInput.isNotEmpty
+        ? bankAccountInput
+        : storedBankAccount;
     final hasKosPhoto =
         _selectedKosPhotoBytes != null || photoUrl.trim().isNotEmpty;
     final hasPaymentProof =

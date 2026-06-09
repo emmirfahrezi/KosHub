@@ -1159,14 +1159,18 @@ class _ProfileHeader extends StatelessWidget {
     required this.name,
     required this.email,
     required this.role,
+    required this.photoUrl,
   });
 
   final String name;
   final String email;
   final String role;
+  final String photoUrl;
 
   @override
   Widget build(BuildContext context) {
+    final hasPhoto = photoUrl.trim().isNotEmpty;
+
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -1180,7 +1184,10 @@ class _ProfileHeader extends StatelessWidget {
           CircleAvatar(
             radius: 30,
             backgroundColor: Colors.white.withValues(alpha: 0.18),
-            child: const Icon(Icons.person, color: Colors.white, size: 32),
+            backgroundImage: hasPhoto ? NetworkImage(photoUrl) : null,
+            child: hasPhoto
+                ? null
+                : const Icon(Icons.person, color: Colors.white, size: 32),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -1315,6 +1322,7 @@ class _StatusBadge extends StatelessWidget {
       background = const Color(0xFFE5F7F6);
       foreground = const Color(0xFF006A6A);
     } else if (label.contains('Sudah Dikonfirmasi') ||
+        label.contains('Dibooking') ||
         label.contains('Pending') ||
         label.contains('Tersedia')) {
       background = const Color(0xFFEAF1FF);

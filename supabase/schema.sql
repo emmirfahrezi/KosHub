@@ -34,6 +34,7 @@ create table if not exists public.kos (
   owner_name text not null default 'Pemilik Kos',
   owner_status text not null default 'Online',
   owner_photo text not null default '',
+  bank_account text not null default '',
   nama_kos text not null,
   area text not null default '-',
   alamat text not null default '-',
@@ -51,6 +52,16 @@ create table if not exists public.kos (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table if exists public.kos
+add column if not exists bank_account text not null default '';
+
+update public.kos as k
+set bank_account = p.bank_account
+from public.profiles as p
+where p.id = k.owner_id
+  and coalesce(k.bank_account, '') = ''
+  and coalesce(p.bank_account, '') <> '';
 
 create table if not exists public.chats (
   id uuid primary key default gen_random_uuid(),
@@ -106,6 +117,20 @@ create table if not exists public.bookings (
   total_price integer not null default 0,
   payment_updated_at timestamptz,
   owner_notes text[] not null default '{}',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.kos_reviews (
+  id uuid primary key default gen_random_uuid(),
+  booking_id uuid not null unique references public.bookings(id) on delete cascade,
+  kos_id uuid not null references public.kos(id) on delete cascade,
+  owner_id uuid not null references public.profiles(id) on delete cascade,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  user_name text not null default 'Penyewa',
+  user_photo text not null default '',
+  rating integer not null check (rating between 1 and 5),
+  comment text not null default '',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -175,6 +200,36 @@ begin
 end;
 $$;
 
+create or replace function public.refresh_kos_review_summary()
+returns trigger
+language plpgsql
+as $$
+declare
+  v_kos_id uuid;
+begin
+  v_kos_id := coalesce(new.kos_id, old.kos_id);
+
+  update public.kos
+  set
+    rating = coalesce(
+      (
+        select avg(rating)::numeric(3,2)
+        from public.kos_reviews
+        where kos_id = v_kos_id
+      ),
+      0
+    ),
+    total_review = (
+      select count(*)
+      from public.kos_reviews
+      where kos_id = v_kos_id
+    )
+  where id = v_kos_id;
+
+  return coalesce(new, old);
+end;
+$$;
+
 drop trigger if exists profiles_touch_updated_at on public.profiles;
 create trigger profiles_touch_updated_at
 before update on public.profiles
@@ -194,6 +249,16 @@ drop trigger if exists bookings_touch_updated_at on public.bookings;
 create trigger bookings_touch_updated_at
 before update on public.bookings
 for each row execute function public.touch_updated_at();
+
+drop trigger if exists kos_reviews_touch_updated_at on public.kos_reviews;
+create trigger kos_reviews_touch_updated_at
+before update on public.kos_reviews
+for each row execute function public.touch_updated_at();
+
+drop trigger if exists kos_reviews_refresh_kos_summary on public.kos_reviews;
+create trigger kos_reviews_refresh_kos_summary
+after insert or update or delete on public.kos_reviews
+for each row execute function public.refresh_kos_review_summary();
 
 drop trigger if exists cms_home_banners_touch_updated_at on public.cms_home_banners;
 create trigger cms_home_banners_touch_updated_at
@@ -228,6 +293,10 @@ declare
   v_kos public.kos%rowtype;
   v_profile public.profiles%rowtype;
   v_booking_id uuid;
+  v_requested_room text;
+  v_assigned_room text;
+  v_room_index integer;
+  v_total_rooms integer;
 begin
   if auth.uid() is null then
     raise exception 'Sesi login tidak valid.';
@@ -246,6 +315,11 @@ begin
     raise exception 'Kamar sudah penuh.';
   end if;
 
+  v_total_rooms := greatest(v_kos.total_rooms, v_kos.available_rooms);
+  if v_total_rooms <= 0 then
+    raise exception 'Jumlah kamar belum diatur.';
+  end if;
+
   if v_kos.owner_id = auth.uid() then
     raise exception 'Pemilik kos tidak bisa booking kos sendiri.';
   end if;
@@ -256,6 +330,36 @@ begin
 
   if not found then
     raise exception 'Profil user belum tersedia.';
+  end if;
+
+  v_requested_room := nullif(trim(coalesce(p_room_label, '')), '');
+
+  if v_requested_room is not null and not exists (
+    select 1
+    from public.bookings
+    where kos_id = v_kos.id
+      and room_label = v_requested_room
+      and status not in ('Dibatalkan', 'Selesai')
+  ) then
+    v_assigned_room := v_requested_room;
+  else
+    for v_room_index in 1..v_total_rooms loop
+      v_assigned_room := format('Kamar %s', lpad(v_room_index::text, 2, '0'));
+      if not exists (
+        select 1
+        from public.bookings
+        where kos_id = v_kos.id
+          and room_label = v_assigned_room
+          and status not in ('Dibatalkan', 'Selesai')
+      ) then
+        exit;
+      end if;
+      v_assigned_room := null;
+    end loop;
+  end if;
+
+  if v_assigned_room is null then
+    raise exception 'Tidak ada kamar kosong yang bisa dipilih.';
   end if;
 
   insert into public.bookings (
@@ -291,7 +395,7 @@ begin
     v_profile.photo_url,
     v_profile.emergency_contact,
     to_jsonb(v_kos),
-    p_room_label,
+    v_assigned_room,
     p_note,
     p_payment_proof_url,
     p_start_date,
@@ -319,6 +423,7 @@ alter table public.kos enable row level security;
 alter table public.chats enable row level security;
 alter table public.chat_messages enable row level security;
 alter table public.bookings enable row level security;
+alter table public.kos_reviews enable row level security;
 alter table public.cms_home_banners enable row level security;
 alter table public.owner_vouchers enable row level security;
 
@@ -421,6 +526,30 @@ with check (
   or user_id = auth.uid()
   or owner_id = auth.uid()
 );
+
+drop policy if exists kos_reviews_select_signed_in on public.kos_reviews;
+create policy kos_reviews_select_signed_in on public.kos_reviews
+for select using (auth.uid() is not null);
+
+drop policy if exists kos_reviews_insert_completed_tenant on public.kos_reviews;
+create policy kos_reviews_insert_completed_tenant on public.kos_reviews
+for insert with check (
+  user_id = auth.uid()
+  and exists (
+    select 1
+    from public.bookings
+    where bookings.id = kos_reviews.booking_id
+      and bookings.user_id = auth.uid()
+      and bookings.kos_id = kos_reviews.kos_id
+      and bookings.owner_id = kos_reviews.owner_id
+      and bookings.status = 'Selesai'
+  )
+);
+
+drop policy if exists kos_reviews_update_owner on public.kos_reviews;
+create policy kos_reviews_update_owner on public.kos_reviews
+for update using (user_id = auth.uid() or public.is_admin())
+with check (user_id = auth.uid() or public.is_admin());
 
 drop policy if exists home_banners_select_signed_in on public.cms_home_banners;
 create policy home_banners_select_signed_in on public.cms_home_banners

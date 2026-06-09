@@ -101,7 +101,7 @@ class _AuthPageState extends State<AuthPage> {
                           ),
                           SizedBox(height: 10),
                           Text(
-                            'Cari kos, chat pemilik, booking kamar, dan pantau transaksi dalam satu aplikasi.',
+                            'Cari kos, chat pemilik, booking kamar, dan pantau status booking dalam satu aplikasi.',
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 14,

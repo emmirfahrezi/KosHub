@@ -50,35 +50,8 @@ class OwnerDashboardPage extends StatelessWidget {
                 ? 0.0
                 : activeResidents.length / totalRooms;
             final occupancyPercent = (occupancyRatio * 100).round();
-            final thisMonthBills = activeResidents.fold<int>(
-              0,
-              (runningTotal, booking) => runningTotal + booking.monthlyPrice,
-            );
-            final latePayments = activeResidents
-                .where((booking) => booking.paymentStatus == 'Overdue')
-                .length;
-            final monthlyIncome = activeResidents
-                .where((booking) => booking.paymentStatus == 'Lunas')
-                .where(
-                  (booking) =>
-                      booking.paymentUpdatedAt != null &&
-                      booking.paymentUpdatedAt!.month == now.month &&
-                      booking.paymentUpdatedAt!.year == now.year,
-                )
-                .fold<int>(
-                  0,
-                  (runningTotal, booking) =>
-                      runningTotal + booking.monthlyPrice,
-                );
             final latestResidents = [...activeResidents]
               ..sort((a, b) => b.sortKey.compareTo(a.sortKey));
-            final dueSoonResidents = [...activeResidents]
-              ..sort(
-                (a, b) => _nextBillingDueDate(
-                  a.startDateValue,
-                  now,
-                ).compareTo(_nextBillingDueDate(b.startDateValue, now)),
-              );
             final bookingToday = bookings
                 .where((booking) => _isSameDay(booking.sortKey, now))
                 .length;
@@ -104,17 +77,6 @@ class OwnerDashboardPage extends StatelessWidget {
                       );
                     },
                     icon: const Icon(Icons.notifications_none_rounded),
-                  ),
-                  IconButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute<void>(
-                          builder: (_) => const OwnerTransactionsPage(),
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.receipt_long_rounded),
                   ),
                 ],
               ),
@@ -395,54 +357,17 @@ class OwnerDashboardPage extends StatelessWidget {
                             },
                           ),
                           _OwnerMetricCard(
-                            title: 'Tagihan bulan ini',
-                            value: _currency(thisMonthBills),
-                            subtitle: 'Estimasi berjalan',
-                            icon: Icons.receipt_long_rounded,
-                            accentColor: const Color(0xFF182022),
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute<void>(
-                                  builder: (_) => const OwnerTransactionsPage(
-                                    initialFilter:
-                                        OwnerTransactionFilter.thisMonth,
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                          _OwnerMetricCard(
-                            title: 'Pembayaran telat',
-                            value: '$latePayments',
-                            subtitle: 'Butuh follow up',
-                            icon: Icons.warning_amber_rounded,
-                            accentColor: const Color(0xFF9F4035),
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute<void>(
-                                  builder: (_) => const OwnerTransactionsPage(
-                                    initialFilter:
-                                        OwnerTransactionFilter.overdue,
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                          _OwnerMetricCard(
-                            title: 'Pendapatan bulan ini',
-                            value: _currency(monthlyIncome),
-                            subtitle: 'Pembayaran lunas',
-                            icon: Icons.payments_rounded,
+                            title: 'Kamar tersedia',
+                            value: '$availableRooms',
+                            subtitle: 'Siap dibooking',
+                            icon: Icons.meeting_room_rounded,
                             accentColor: const Color(0xFF1D7A46),
                             onTap: () {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute<void>(
-                                  builder: (_) => const OwnerTransactionsPage(
-                                    initialFilter: OwnerTransactionFilter.paid,
-                                  ),
+                                  builder: (_) =>
+                                      const OwnerResidentsPage(initialTab: 0),
                                 ),
                               );
                             },
@@ -484,18 +409,6 @@ class OwnerDashboardPage extends StatelessWidget {
                               context,
                               MaterialPageRoute<void>(
                                 builder: (_) => const ChatListPage(),
-                              ),
-                            );
-                          },
-                        ),
-                        _DashboardShortcutChip(
-                          label: 'Transaksi',
-                          icon: Icons.receipt_long_rounded,
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute<void>(
-                                builder: (_) => const OwnerTransactionsPage(),
                               ),
                             );
                           },
@@ -584,7 +497,7 @@ class OwnerDashboardPage extends StatelessWidget {
                                 title: booking.userName,
                                 subtitle:
                                     '${booking.roomLabel} - Masuk ${booking.startDate}',
-                                trailing: booking.paymentStatus,
+                                trailing: booking.status,
                                 onTap: () {
                                   Navigator.push(
                                     context,
@@ -598,41 +511,6 @@ class OwnerDashboardPage extends StatelessWidget {
                             }).toList(),
                           ),
                   ),
-                  const SizedBox(height: 16),
-                  _OwnerSectionCard(
-                    title: 'Jatuh tempo terdekat',
-                    subtitle:
-                        'Daftar penghuni yang paling dekat dengan deadline pembayaran berikutnya.',
-                    child: dueSoonResidents.isEmpty
-                        ? const Text(
-                            'Belum ada jatuh tempo aktif.',
-                            style: TextStyle(color: Color(0xFF5D6B6B)),
-                          )
-                        : Column(
-                            children: dueSoonResidents.take(3).map((booking) {
-                              final dueDate = _nextBillingDueDate(
-                                booking.startDateValue,
-                                now,
-                              );
-                              return _OwnerListTile(
-                                title: booking.userName,
-                                subtitle:
-                                    '${booking.roomLabel} - Jatuh tempo ${_formatLongDate(dueDate)}',
-                                trailing: booking.paymentStatus,
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute<void>(
-                                      builder: (_) =>
-                                          ResidentDetailPage(booking: booking),
-                                    ),
-                                  );
-                                },
-                              );
-                            }).toList(),
-                          ),
-                  ),
-                  const SizedBox(height: 16),
                   _OwnerSectionCard(
                     title: 'Aktivitas Terbaru',
                     subtitle:

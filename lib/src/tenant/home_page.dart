@@ -17,6 +17,16 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   String _searchQuery = '';
   String? _selectedCategory;
+  bool _isGridView = true;
+  late final Stream<List<HomeBannerData>> _homeBannersStream;
+  late final Stream<List<KosData>> _kosStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _homeBannersStream = SupabaseService.instance.homeBannersStream();
+    _kosStream = SupabaseService.instance.kosStream();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -47,7 +57,7 @@ class _HomePageState extends State<HomePage> {
         ],
       ),
       body: StreamBuilder<List<HomeBannerData>>(
-        stream: SupabaseService.instance.homeBannersStream(),
+        stream: _homeBannersStream,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const _LoadingScreen(label: 'Memuat tampilan beranda...');
@@ -66,14 +76,10 @@ class _HomePageState extends State<HomePage> {
           final heroItems = banners
               .where((item) => item.isActive && item.placement == 'hero')
               .toList();
-          final promoItems = banners
-              .where((item) => item.isActive && item.placement == 'promo')
-              .toList();
           final heroBanner = heroItems.isEmpty ? null : heroItems.first;
-          final promoBanner = promoItems.isEmpty ? null : promoItems.first;
 
           return StreamBuilder<List<KosData>>(
-            stream: SupabaseService.instance.kosStream(),
+            stream: _kosStream,
             builder: (context, kosSnapshot) {
               if (kosSnapshot.connectionState == ConnectionState.waiting) {
                 return const _LoadingScreen(label: 'Memuat data kos...');
@@ -127,12 +133,53 @@ class _HomePageState extends State<HomePage> {
                         },
                       ),
                       const SizedBox(height: 28),
-                      _SectionHeader(
-                        title: _selectedCategory == null
-                            ? 'Kos Tersedia'
-                            : 'Kos $_selectedCategory',
-                        actionLabel: 'Seed Data Demo',
-                        onTap: _seedDemoData,
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              _selectedCategory == null
+                                  ? 'Kos Tersedia'
+                                  : 'Kos $_selectedCategory',
+                              style: theme.textTheme.titleLarge?.copyWith(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(18),
+                              border: Border.all(
+                                color: const Color(0xFFD9E9F7),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _ViewModeButton(
+                                  icon: Icons.view_list_rounded,
+                                  selected: !_isGridView,
+                                  onTap: () {
+                                    if (_isGridView) {
+                                      setState(() => _isGridView = false);
+                                    }
+                                  },
+                                ),
+                                const SizedBox(width: 4),
+                                _ViewModeButton(
+                                  icon: Icons.grid_view_rounded,
+                                  selected: _isGridView,
+                                  onTap: () {
+                                    if (!_isGridView) {
+                                      setState(() => _isGridView = true);
+                                    }
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 14),
                       if (filtered.isEmpty)
@@ -141,42 +188,71 @@ class _HomePageState extends State<HomePage> {
                               ? 'Belum ada kos yang aktif'
                               : 'Tidak ada hasil yang cocok',
                           subtitle: items.isEmpty
-                              ? 'Tekan "Seed Data Demo" untuk membuat contoh data kos, pemilik, dan chat awal.'
+                              ? 'Belum ada listing kos aktif yang tampil saat ini.'
                               : 'Coba ubah kata kunci atau kategori pencarianmu.',
-                          buttonLabel: items.isEmpty ? 'Buat Data Demo' : null,
-                          onPressed: items.isEmpty ? _seedDemoData : null,
                         )
                       else
-                        ListView.separated(
-                          itemCount: filtered.length,
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          separatorBuilder: (_, _) =>
-                              const SizedBox(height: 16),
-                          itemBuilder: (context, index) {
-                            final kos = filtered[index];
-                            return _KosCard(
-                              kos: kos,
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute<void>(
-                                    builder: (_) => KosDetailPage(kos: kos),
-                                  ),
-                                );
-                              },
-                            );
-                          },
-                        ),
-                      const SizedBox(height: 28),
-                      Text(
-                        'Promo Menarik',
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      _PromoBanner(banner: promoBanner),
+                        _isGridView
+                            ? LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final cardWidth =
+                                      (constraints.maxWidth - 12) / 2;
+                                  final cardHeight = cardWidth < 190
+                                      ? 460.0
+                                      : 420.0;
+
+                                  return GridView.builder(
+                                    itemCount: filtered.length,
+                                    shrinkWrap: true,
+                                    physics:
+                                        const NeverScrollableScrollPhysics(),
+                                    gridDelegate:
+                                        SliverGridDelegateWithFixedCrossAxisCount(
+                                          crossAxisCount: 2,
+                                          crossAxisSpacing: 12,
+                                          mainAxisSpacing: 16,
+                                          mainAxisExtent: cardHeight,
+                                        ),
+                                    itemBuilder: (context, index) {
+                                      final kos = filtered[index];
+                                      return _KosCard(
+                                        kos: kos,
+                                        onTap: () {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute<void>(
+                                              builder: (_) =>
+                                                  KosDetailPage(kos: kos),
+                                            ),
+                                          );
+                                        },
+                                      );
+                                    },
+                                  );
+                                },
+                              )
+                            : ListView.separated(
+                                itemCount: filtered.length,
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                separatorBuilder: (_, _) =>
+                                    const SizedBox(height: 16),
+                                itemBuilder: (context, index) {
+                                  final kos = filtered[index];
+                                  return _KosCard(
+                                    kos: kos,
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute<void>(
+                                          builder: (_) =>
+                                              KosDetailPage(kos: kos),
+                                        ),
+                                      );
+                                    },
+                                  );
+                                },
+                              ),
                     ],
                   ),
                 ),
@@ -187,33 +263,36 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
+}
 
-  Future<void> _seedDemoData() async {
-    try {
-      await SupabaseService.instance.seedSampleData();
-      if (mounted) {
-        _showLightDialog(
-          context,
-          title: 'Data demo siap',
-          message: 'Contoh data kos berhasil dimuat ke aplikasi.',
-        );
-      }
-    } on SupabaseAppException catch (error) {
-      if (mounted) {
-        _showLightDialog(
-          context,
-          title: 'Data demo gagal dimuat',
-          message: _supabaseMessage(error),
-        );
-      }
-    } catch (_) {
-      if (mounted) {
-        _showLightDialog(
-          context,
-          title: 'Data demo gagal',
-          message: 'Coba lagi dalam beberapa saat.',
-        );
-      }
-    }
+class _ViewModeButton extends StatelessWidget {
+  const _ViewModeButton({
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Ink(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFF006A6A) : Colors.transparent,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Icon(
+          icon,
+          size: 18,
+          color: selected ? Colors.white : const Color(0xFF5D6B6B),
+        ),
+      ),
+    );
   }
 }

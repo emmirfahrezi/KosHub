@@ -318,11 +318,18 @@ class AdminUsersPage extends StatefulWidget {
 
 class _AdminUsersPageState extends State<AdminUsersPage> {
   String _query = '';
+  late final Stream<List<AppUserData>> _usersStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _usersStream = SupabaseService.instance.allUsersStream();
+  }
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<AppUserData>>(
-      stream: SupabaseService.instance.allUsersStream(),
+      stream: _usersStream,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const _LoadingScreen(label: 'Memuat pengguna...');

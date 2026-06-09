@@ -12,7 +12,6 @@ class OwnerNotificationsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final now = DateTime.now();
     final notifications = <_OwnerNotificationData>[
       ...bookings
           .where((booking) => booking.status == 'Menunggu Konfirmasi')
@@ -31,35 +30,13 @@ class OwnerNotificationsPage extends StatelessWidget {
             ),
           ),
       ...bookings
-          .where((booking) => booking.paymentStatus == 'Overdue')
-          .map(
-            (booking) => _OwnerNotificationData(
-              title: 'Penghuni telat bayar',
-              subtitle: '${booking.userName} belum membayar tagihan bulan ini',
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute<void>(
-                    builder: (_) => ResidentDetailPage(booking: booking),
-                  ),
-                );
-              },
-            ),
-          ),
-      ...bookings
           .where((booking) => booking.status == 'Sudah Check-in')
-          .where(
-            (booking) =>
-                _nextBillingDueDate(
-                  booking.startDateValue,
-                  now,
-                ).difference(now).inDays <=
-                3,
-          )
+          .where((booking) => booking.note.trim().isNotEmpty)
           .map(
             (booking) => _OwnerNotificationData(
-              title: 'Jatuh tempo pembayaran',
-              subtitle: '${booking.userName} jatuh tempo dalam 3 hari',
+              title: 'Penghuni aktif perlu dicek',
+              subtitle:
+                  '${booking.userName} punya catatan aktif untuk ditinjau',
               onTap: () {
                 Navigator.push(
                   context,
@@ -93,7 +70,7 @@ class OwnerNotificationsPage extends StatelessWidget {
             const _EmptyStateCard(
               title: 'Belum ada notifikasi',
               subtitle:
-                  'Booking baru, reminder bayar, dan aktivitas penting akan muncul di sini.',
+                  'Booking baru dan aktivitas penting penghuni akan muncul di sini.',
             )
           else
             ...notifications.map(
@@ -151,6 +128,7 @@ class OwnerSettingsPage extends StatelessWidget {
                     name: profile?.name ?? user.displayName ?? 'Pemilik Kos',
                     email: profile?.email ?? user.email ?? '-',
                     role: profile?.role ?? 'pemilik',
+                    photoUrl: profile?.photoUrl ?? user.photoURL ?? '',
                   ),
                   const SizedBox(height: 16),
                   _OwnerSectionCard(
@@ -169,19 +147,50 @@ class OwnerSettingsPage extends StatelessWidget {
                           value: kos?.address ?? 'Belum diisi',
                         ),
                         const SizedBox(height: 6),
-                        const _SummaryRow(
+                        _SummaryRow(
                           label: 'Nomor HP',
-                          value: 'Kelola dari data penghuni / akun',
+                          value:
+                              profile?.phoneNumber.trim().isNotEmpty == true &&
+                                  profile?.phoneNumber != '-'
+                              ? profile!.phoneNumber
+                              : 'Belum diisi',
                         ),
                         const SizedBox(height: 6),
-                        const _SummaryRow(
+                        _SummaryRow(
                           label: 'Rekening pembayaran',
-                          value: 'Belum diisi',
+                          value:
+                              profile?.bankAccountLabel.trim().isNotEmpty ==
+                                      true &&
+                                  profile?.bankAccountLabel != 'Belum diisi'
+                              ? profile!.bankAccountLabel
+                              : 'Belum diisi',
                         ),
                         const SizedBox(height: 6),
                         const _SummaryRow(
                           label: 'Jam operasional',
                           value: '08.00 - 21.00',
+                        ),
+                        const SizedBox(height: 14),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute<void>(
+                                  builder: (_) => TenantProfileEditPage(
+                                    profile: profile,
+                                    pageTitle: 'Edit Profil Owner',
+                                    introText:
+                                        'Ubah data akun owner seperti nama, nomor HP, dan foto profil. Password dipisah ke halaman khusus agar lebih aman.',
+                                    passwordPageTitle: 'Ubah Password Owner',
+                                  ),
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.edit_rounded),
+                            label: const Text('Edit Profil Akun'),
+                          ),
                         ),
                       ],
                     ),
@@ -198,6 +207,21 @@ class OwnerSettingsPage extends StatelessWidget {
                         MaterialPageRoute<void>(
                           builder: (_) =>
                               OwnerRegistrationPage(existingKos: kos),
+                        ),
+                      );
+                    },
+                  ),
+                  _ProfileMenuTile(
+                    icon: Icons.account_balance_wallet_rounded,
+                    title: 'Rekening Pembayaran',
+                    subtitle:
+                        'Isi nomor rekening, nama bank, dan atas nama untuk transfer booking',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                          builder: (_) =>
+                              OwnerBankAccountPage(profile: profile),
                         ),
                       );
                     },
@@ -273,6 +297,161 @@ class OwnerSettingsPage extends StatelessWidget {
         },
       ),
     );
+  }
+}
+
+class OwnerBankAccountPage extends StatefulWidget {
+  const OwnerBankAccountPage({super.key, required this.profile});
+
+  final AppUserData? profile;
+
+  @override
+  State<OwnerBankAccountPage> createState() => _OwnerBankAccountPageState();
+}
+
+class _OwnerBankAccountPageState extends State<OwnerBankAccountPage> {
+  late final TextEditingController _bankAccountController;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _bankAccountController = TextEditingController(
+      text: widget.profile?.bankAccountLabel == 'Belum diisi'
+          ? ''
+          : widget.profile?.bankAccountLabel ?? '',
+    );
+  }
+
+  @override
+  void dispose() {
+    _bankAccountController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        title: const Text('Rekening Pembayaran'),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
+        children: [
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: const Text(
+              'Masukkan rekening penerima yang akan ditampilkan ke penyewa saat transfer booking. Tulis lengkap nama bank, nomor rekening, dan atas nama.',
+              style: TextStyle(color: Color(0xFF5D6B6B), height: 1.45),
+            ),
+          ),
+          const SizedBox(height: 20),
+          _InputField(
+            controller: _bankAccountController,
+            label: 'Rekening penerima',
+            hintText: 'Contoh: BCA 1234567890 a.n Nama Pemilik',
+            maxLines: 2,
+          ),
+        ],
+      ),
+      bottomSheet: SafeArea(
+        minimum: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        child: SizedBox(
+          width: double.infinity,
+          child: FilledButton(
+            onPressed: _saving ? null : _save,
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF006A6A),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+            ),
+            child: _saving
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Text('Simpan Rekening'),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _save() async {
+    final user = SupabaseAuth.instance.currentUser;
+    if (user == null) {
+      _showLightDialog(
+        context,
+        title: 'Sesi tidak ditemukan',
+        message: 'Silakan login ulang untuk menyimpan rekening pembayaran.',
+      );
+      return;
+    }
+
+    final bankAccount = _bankAccountController.text.trim();
+    if (bankAccount.isEmpty) {
+      _showLightDialog(
+        context,
+        title: 'Rekening belum diisi',
+        message:
+            'Masukkan nama bank, nomor rekening, dan atas nama penerima terlebih dulu.',
+      );
+      return;
+    }
+
+    setState(() => _saving = true);
+    try {
+      await SupabaseService.instance.updateOwnerBankAccount(
+        user: user,
+        bankAccount: bankAccount,
+      );
+      if (!mounted) {
+        return;
+      }
+      await _showLightDialog(
+        context,
+        title: 'Rekening diperbarui',
+        message: 'Rekening pembayaran owner berhasil disimpan.',
+      );
+      if (!mounted) {
+        return;
+      }
+      Navigator.pop(context);
+    } on SupabaseAppException catch (error) {
+      if (!mounted) {
+        return;
+      }
+      _showLightDialog(
+        context,
+        title: 'Rekening belum tersimpan',
+        message: _supabaseMessage(error),
+      );
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      _showLightDialog(
+        context,
+        title: 'Rekening belum tersimpan',
+        message: 'Terjadi kendala saat menyimpan rekening. Coba lagi.',
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _saving = false);
+      }
+    }
   }
 }
 
