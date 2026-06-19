@@ -441,6 +441,7 @@ class ChatPreviewData {
     required this.penyewaName,
     required this.penyewaPhoto,
     required this.lastMessage,
+    required this.lastSenderId,
     required this.timeLabel,
     required this.sortKey,
   });
@@ -454,6 +455,7 @@ class ChatPreviewData {
   final String penyewaName;
   final String penyewaPhoto;
   final String lastMessage;
+  final String lastSenderId;
   final String timeLabel;
   final DateTime sortKey;
 
@@ -483,6 +485,7 @@ class ChatPreviewData {
       penyewaName: data['penyewa_name'] as String? ?? 'Penyewa',
       penyewaPhoto: data['penyewa_photo'] as String? ?? '',
       lastMessage: data['last_message'] as String? ?? '',
+      lastSenderId: data['last_sender_id'] as String? ?? '',
       timeLabel: _formatTime(timestamp),
       sortKey: timestamp,
     );

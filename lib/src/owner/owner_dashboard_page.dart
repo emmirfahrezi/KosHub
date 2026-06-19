@@ -29,7 +29,13 @@ class OwnerDashboardPage extends StatelessWidget {
               return const _LoadingScreen(label: 'Menghitung statistik kos...');
             }
 
-            final bookings = bookingsSnapshot.data ?? const <BookingData>[];
+            final ownerBookings =
+                bookingsSnapshot.data ?? const <BookingData>[];
+            final bookings = kos == null
+                ? const <BookingData>[]
+                : ownerBookings
+                      .where((booking) => booking.kos.id == kos.id)
+                      .toList();
             final now = DateTime.now();
             final activeResidents = bookings
                 .where((booking) => booking.status == 'Sudah Check-in')
@@ -37,15 +43,15 @@ class OwnerDashboardPage extends StatelessWidget {
             final pendingBookings = bookings
                 .where((booking) => booking.status == 'Menunggu Konfirmasi')
                 .toList();
+            final roomBlockingBookings = bookings
+                .where((booking) => _roomBlocksAvailability(booking.status))
+                .toList();
             final totalRooms = kos == null
                 ? 0
-                : math.max(kos.totalRooms, activeResidents.length);
+                : math.max(kos.totalRooms, roomBlockingBookings.length);
             final availableRooms = kos == null
                 ? 0
-                : math.max(
-                    kos.availableRooms,
-                    totalRooms - activeResidents.length,
-                  );
+                : math.max(totalRooms - roomBlockingBookings.length, 0);
             final occupancyRatio = totalRooms == 0
                 ? 0.0
                 : activeResidents.length / totalRooms;
@@ -64,20 +70,7 @@ class OwnerDashboardPage extends StatelessWidget {
                 backgroundColor: Colors.white,
                 title: const Text('Dashboard Pemilik'),
                 actions: [
-                  IconButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute<void>(
-                          builder: (_) => OwnerNotificationsPage(
-                            bookings: bookings,
-                            kos: kos,
-                          ),
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.notifications_none_rounded),
-                  ),
+                  _OwnerNotificationBadgeButton(bookings: bookings, kos: kos),
                 ],
               ),
               floatingActionButton: FloatingActionButton.extended(
@@ -144,14 +137,28 @@ class OwnerDashboardPage extends StatelessWidget {
                               ),
                               ListTile(
                                 contentPadding: EdgeInsets.zero,
-                                leading: const Icon(Icons.campaign_rounded),
-                                title: const Text('Broadcast pesan'),
+                                leading: const Icon(Icons.chat_rounded),
+                                title: const Text('Chat Penyewa'),
                                 onTap: () {
                                   Navigator.pop(context);
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute<void>(
                                       builder: (_) => const ChatListPage(),
+                                    ),
+                                  );
+                                },
+                              ),
+                              ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                leading: const Icon(Icons.star_rounded),
+                                title: const Text('Ulasan Penyewa'),
+                                onTap: () {
+                                  Navigator.pop(context);
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute<void>(
+                                      builder: (_) => const OwnerReviewsPage(),
                                     ),
                                   );
                                 },
@@ -391,55 +398,6 @@ class OwnerDashboardPage extends StatelessWidget {
                         ],
                       );
                     },
-                  ),
-                  const SizedBox(height: 20),
-                  _OwnerSectionCard(
-                    title: 'Akses Cepat',
-                    subtitle:
-                        'Pintasan ke area yang paling sering dibuka saat mengelola kos setiap hari.',
-                    child: Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      children: [
-                        _DashboardShortcutChip(
-                          label: 'Chat',
-                          icon: Icons.chat_bubble_rounded,
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute<void>(
-                                builder: (_) => const ChatListPage(),
-                              ),
-                            );
-                          },
-                        ),
-                        _DashboardShortcutChip(
-                          label: 'Booking',
-                          icon: Icons.fact_check_rounded,
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute<void>(
-                                builder: (_) =>
-                                    const OwnerBookingPage(initialTab: 0),
-                              ),
-                            );
-                          },
-                        ),
-                        _DashboardShortcutChip(
-                          label: 'Pengaturan',
-                          icon: Icons.settings_rounded,
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute<void>(
-                                builder: (_) => const OwnerSettingsPage(),
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
                   ),
                   const SizedBox(height: 20),
                   Container(

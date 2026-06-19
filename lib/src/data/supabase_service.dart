@@ -64,16 +64,35 @@ class SupabaseService {
       password: password,
     );
     final user = credential.user!;
-    await ensureUserProfile(
+    await prepareSignedInUser(
       user,
       fallbackName: user.displayName ?? email.split('@').first,
     );
 
     final existing = await _profileMap(user.id);
     final existingRole = existing?['role'] as String? ?? 'penyewa';
-    final canSeedAdmin = _adminSeedEmails.contains(email.toLowerCase());
 
-    if (!_isAdminRole(existingRole) && canSeedAdmin) {
+    if (!_isAdminRole(existingRole)) {
+      await SupabaseAuth.instance.signOut();
+      throw SupabaseAppException(
+        plugin: 'supabase',
+        code: 'permission-denied',
+        message: 'Akun ini bukan admin aplikasi Koshub.',
+      );
+    }
+  }
+
+  Future<void> prepareSignedInUser(
+    User user, {
+    required String fallbackName,
+  }) async {
+    await ensureUserProfile(user, fallbackName: fallbackName);
+
+    final existing = await _profileMap(user.id);
+    final existingRole = existing?['role'] as String? ?? 'penyewa';
+    final email = (user.email ?? '').toLowerCase();
+
+    if (!_isAdminRole(existingRole) && _adminSeedEmails.contains(email)) {
       await _client
           .from('profiles')
           .update({
@@ -92,19 +111,14 @@ class SupabaseService {
       return;
     }
 
-    if (!_isAdminRole(existingRole)) {
-      await SupabaseAuth.instance.signOut();
-      throw SupabaseAppException(
-        plugin: 'supabase',
-        code: 'permission-denied',
-        message: 'Akun ini bukan admin aplikasi Koshub.',
-      );
+    if (_isAdminRole(existingRole)) {
+      await _client
+          .from('profiles')
+          .update({
+            'login_activity': 'Login ${_formatLongDate(DateTime.now())}',
+          })
+          .eq('id', user.id);
     }
-
-    await _client
-        .from('profiles')
-        .update({'login_activity': 'Login ${_formatLongDate(DateTime.now())}'})
-        .eq('id', user.id);
   }
 
   Future<void> ensureUserProfile(
@@ -630,7 +644,7 @@ class SupabaseService {
         .from('chat_messages')
         .stream(primaryKey: ['id'])
         .eq('chat_id', chatId)
-        .order('created_at')
+        .order('created_at', ascending: true)
         .map((rows) {
           return rows.map((row) {
             return ChatMessageData.fromMap(row['id'].toString(), {
@@ -658,6 +672,7 @@ class SupabaseService {
     final chatMetadata = <String, dynamic>{
       'last_message': text,
       'last_message_time': DateTime.now().toUtc().toIso8601String(),
+      'last_sender_id': user.id,
     };
 
     if (isPenyewa) {
@@ -681,8 +696,56 @@ class SupabaseService {
     return _bookingsStream('user_id', userId);
   }
 
-  Stream<List<BookingData>> ownerBookingsStream(String ownerId) {
-    return _bookingsStream('owner_id', ownerId);
+  Stream<Set<String>> notificationReadKeysStream(String userId) {
+    return _client
+        .from('notification_reads')
+        .stream(primaryKey: ['user_id', 'notification_key'])
+        .eq('user_id', userId)
+        .map(
+          (rows) => rows
+              .map((row) => row['notification_key'] as String? ?? '')
+              .where((key) => key.isNotEmpty)
+              .toSet(),
+        );
+  }
+
+  Future<void> markNotificationRead(String notificationKey) async {
+    final user = SupabaseAuth.instance.currentUser!;
+    await _client.from('notification_reads').upsert({
+      'user_id': user.id,
+      'notification_key': notificationKey,
+      'read_at': DateTime.now().toUtc().toIso8601String(),
+    });
+  }
+
+  Stream<List<BookingData>> ownerBookingsStream(String ownerId) async* {
+    yield await fetchOwnerBookings(ownerId);
+    yield* _bookingsStream('owner_id', ownerId);
+  }
+
+  Future<List<BookingData>> fetchOwnerBookings(String ownerId) async {
+    final rows = await _client
+        .from('bookings')
+        .select()
+        .eq('owner_id', ownerId);
+    final items = await Future.wait(rows.map((row) => _bookingFromRow(row)));
+    final resolved = items.whereType<BookingData>().toList();
+    resolved.sort((a, b) => b.sortKey.compareTo(a.sortKey));
+    return resolved;
+  }
+
+  Stream<List<ReviewData>> ownerReviewsStream(String ownerId) {
+    return _client
+        .from('kos_reviews')
+        .stream(primaryKey: ['id'])
+        .eq('owner_id', ownerId)
+        .map((rows) {
+          final reviews = rows
+              .map((row) => ReviewData.fromMap(row['id'].toString(), row))
+              .toList();
+          reviews.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+          return reviews;
+        });
   }
 
   Stream<List<AppUserData>> allUsersStream() {
@@ -963,7 +1026,6 @@ class SupabaseService {
     required DateTime startDate,
     required String startDateLabel,
     required String phoneNumber,
-    required String emergencyContact,
     required String roomLabel,
     required String note,
     required String paymentProofUrl,
@@ -982,10 +1044,7 @@ class SupabaseService {
 
     await _client
         .from('profiles')
-        .update({
-          'phone_number': phoneNumber,
-          'emergency_contact': emergencyContact,
-        })
+        .update({'phone_number': phoneNumber})
         .eq('id', user.id);
 
     final durationInMonths = _monthsFromDuration(durationLabel);
@@ -1039,21 +1098,18 @@ class SupabaseService {
     required String status,
     String? cancelReason,
   }) async {
-    final current = await _client
-        .from('bookings')
-        .select('status')
-        .eq('id', booking.id)
-        .maybeSingle();
-    final previousStatus = current?['status'] as String? ?? booking.status;
-    await _client
+    final updated = await _client
         .from('bookings')
         .update({'status': status, 'cancel_reason': cancelReason})
-        .eq('id', booking.id);
-
-    if (previousStatus != 'Dibatalkan' && status == 'Dibatalkan') {
-      await _adjustAvailableRooms(booking.kos.id, 1);
-    } else if (previousStatus == 'Dibatalkan' && status != 'Dibatalkan') {
-      await _adjustAvailableRooms(booking.kos.id, -1);
+        .eq('id', booking.id)
+        .select('id, status')
+        .maybeSingle();
+    if (updated == null || updated['status'] != status) {
+      throw SupabaseAppException(
+        plugin: 'supabase',
+        code: 'booking-status-not-updated',
+        message: 'Status booking belum berhasil diperbarui.',
+      );
     }
   }
 
@@ -1076,25 +1132,6 @@ class SupabaseService {
       status: 'Dibatalkan',
       cancelReason: 'Dibatalkan oleh penyewa',
     );
-  }
-
-  Future<void> addOwnerNote({
-    required String bookingId,
-    required String note,
-  }) async {
-    final row = await _client
-        .from('bookings')
-        .select('owner_notes')
-        .eq('id', bookingId)
-        .maybeSingle();
-    final notes = (row?['owner_notes'] as List<dynamic>? ?? const [])
-        .map((item) => item.toString())
-        .toList();
-    notes.add(note);
-    await _client
-        .from('bookings')
-        .update({'owner_notes': notes})
-        .eq('id', bookingId);
   }
 
   Future<ReviewData?> fetchBookingReview(String bookingId) async {
@@ -1263,19 +1300,6 @@ class SupabaseService {
 
   Future<Map<String, dynamic>?> _profileMap(String userId) async {
     return _client.from('profiles').select().eq('id', userId).maybeSingle();
-  }
-
-  Future<void> _adjustAvailableRooms(String kosId, int delta) async {
-    final row = await _client
-        .from('kos')
-        .select('available_rooms')
-        .eq('id', kosId)
-        .maybeSingle();
-    final current = (row?['available_rooms'] as num?)?.toInt() ?? 0;
-    await _client
-        .from('kos')
-        .update({'available_rooms': math.max(0, current + delta)})
-        .eq('id', kosId);
   }
 
   String _sqlDate(DateTime value) {

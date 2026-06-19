@@ -146,20 +146,22 @@ class ProfilePage extends StatelessWidget {
                   );
                 },
               ),
-              _ProfileMenuTile(
-                icon: Icons.chat_bubble_outline_rounded,
-                title: 'Chat Aktif',
-                subtitle: 'Lihat dan lanjutkan percakapan dengan pemilik kos',
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute<void>(
-                      builder: (_) => const ChatListPage(),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(height: 12),
+              if (!isOwner) ...[
+                _ProfileMenuTile(
+                  icon: Icons.chat_bubble_outline_rounded,
+                  title: 'Chat Aktif',
+                  subtitle: 'Lihat dan lanjutkan percakapan dengan pemilik kos',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => const ChatListPage(),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 12),
+              ],
               if (isOwner)
                 StreamBuilder<KosData?>(
                   stream: SupabaseService.instance.ownerManagedKosStream(
@@ -169,9 +171,9 @@ class ProfilePage extends StatelessWidget {
                     if (ownerKosSnapshot.connectionState ==
                         ConnectionState.waiting) {
                       return const _ProfileMenuTile(
-                        icon: Icons.storefront_rounded,
-                        title: 'Akun Pemilik Aktif',
-                        subtitle: 'Memuat data listing kos...',
+                        icon: Icons.home_work_rounded,
+                        title: 'Ringkasan Kos',
+                        subtitle: 'Memuat informasi kos yang dikelola...',
                       );
                     }
 
@@ -179,21 +181,59 @@ class ProfilePage extends StatelessWidget {
 
                     return Column(
                       children: [
-                        _ProfileMenuTile(
-                          icon: Icons.storefront_rounded,
-                          title: 'Akun Pemilik Aktif',
-                          subtitle: ownerKos == null
-                              ? 'Akunmu sudah jadi pemilik. Lengkapi listing pertama agar tampil di halaman utama.'
-                              : 'Akun pemilik aktif. Booking sudah dinonaktifkan dan listing bisa kamu edit kapan saja.',
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute<void>(
-                                builder: (_) => const OwnerSettingsPage(),
-                              ),
-                            );
-                          },
-                        ),
+                        if (ownerKos == null)
+                          const _ProfileMenuTile(
+                            icon: Icons.add_business_rounded,
+                            title: 'Listing Kos Belum Lengkap',
+                            subtitle:
+                                'Lengkapi informasi kos agar dapat tampil untuk penyewa.',
+                          )
+                        else ...[
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(18),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(22),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Expanded(
+                                      child: Text(
+                                        'Kos yang Dikelola',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                    ),
+                                    _StatusBadge(
+                                      label: ownerKos.listingStatusLabel,
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                _SummaryRow(
+                                  label: 'Nama kos',
+                                  value: ownerKos.name,
+                                ),
+                                const SizedBox(height: 8),
+                                _SummaryRow(
+                                  label: 'Lokasi',
+                                  value: ownerKos.area,
+                                ),
+                                const SizedBox(height: 8),
+                                _SummaryRow(
+                                  label: 'Total kamar',
+                                  value: '${ownerKos.totalRooms}',
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 12),
                         SizedBox(
                           width: double.infinity,

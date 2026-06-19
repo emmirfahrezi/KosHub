@@ -169,6 +169,7 @@ class OwnerBookingDetailPage extends StatelessWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Status booking diubah menjadi $status.')),
       );
+      Navigator.pop(context, true);
     } on SupabaseAppException catch (error) {
       if (!context.mounted) {
         return;
@@ -226,6 +227,7 @@ class OwnerBookingDetailPage extends StatelessWidget {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Booking dibatalkan: $reason')));
+      Navigator.pop(context, true);
     } on SupabaseAppException catch (error) {
       if (!context.mounted) {
         return;

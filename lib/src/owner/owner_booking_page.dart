@@ -16,7 +16,8 @@ class OwnerBookingPage extends StatefulWidget {
 
 class _OwnerBookingPageState extends State<OwnerBookingPage> {
   late final TextEditingController _searchController;
-  late final Stream<List<BookingData>> _bookingsStream;
+  late Stream<List<BookingData>> _bookingsStream;
+  final Set<String> _updatingBookingIds = <String>{};
   String _query = '';
 
   @override
@@ -282,19 +283,23 @@ class _OwnerBookingPageState extends State<OwnerBookingPage> {
         booking.paymentStatus.toLowerCase().contains(_query);
   }
 
-  void _openBookingDetail(BookingData booking) {
-    Navigator.push(
+  Future<void> _openBookingDetail(BookingData booking) async {
+    final changed = await Navigator.push<bool>(
       context,
-      MaterialPageRoute<void>(
+      MaterialPageRoute<bool>(
         builder: (_) => OwnerBookingDetailPage(booking: booking),
       ),
     );
+    if (changed == true && mounted) {
+      _refreshBookings();
+    }
   }
 
   List<Widget> _buildActions(BuildContext context, BookingData booking) {
+    final isUpdating = _updatingBookingIds.contains(booking.id);
     final actions = <Widget>[
       OutlinedButton.icon(
-        onPressed: () => _openChat(booking),
+        onPressed: isUpdating ? null : () => _openChat(booking),
         icon: const Icon(Icons.chat_rounded),
         label: const Text('Chat Penyewa'),
       ),
@@ -303,29 +308,35 @@ class _OwnerBookingPageState extends State<OwnerBookingPage> {
     if (booking.status == 'Menunggu Konfirmasi') {
       actions.addAll([
         FilledButton(
-          onPressed: () => _updateBookingStatus(booking, 'Sudah Dikonfirmasi'),
+          onPressed: isUpdating
+              ? null
+              : () => _updateBookingStatus(booking, 'Sudah Dikonfirmasi'),
           child: const Text('Terima'),
         ),
         FilledButton.tonal(
-          onPressed: () => _rejectBooking(booking),
+          onPressed: isUpdating ? null : () => _rejectBooking(booking),
           child: const Text('Tolak'),
         ),
       ]);
     } else if (booking.status == 'Sudah Dikonfirmasi') {
       actions.addAll([
         FilledButton(
-          onPressed: () => _updateBookingStatus(booking, 'Sudah Check-in'),
+          onPressed: isUpdating
+              ? null
+              : () => _updateBookingStatus(booking, 'Sudah Check-in'),
           child: const Text('Tandai Check-in'),
         ),
         FilledButton.tonal(
-          onPressed: () => _rejectBooking(booking),
+          onPressed: isUpdating ? null : () => _rejectBooking(booking),
           child: const Text('Batalkan'),
         ),
       ]);
     } else if (booking.status == 'Sudah Check-in') {
       actions.add(
         FilledButton(
-          onPressed: () => _updateBookingStatus(booking, 'Selesai'),
+          onPressed: isUpdating
+              ? null
+              : () => _updateBookingStatus(booking, 'Selesai'),
           child: const Text('Pindah ke Riwayat'),
         ),
       );
@@ -359,6 +370,11 @@ class _OwnerBookingPageState extends State<OwnerBookingPage> {
   }
 
   Future<void> _updateBookingStatus(BookingData booking, String status) async {
+    if (status == 'Selesai' &&
+        !await _confirmFinishResident(context, booking)) {
+      return;
+    }
+    _setBookingUpdating(booking.id, true);
     try {
       await SupabaseService.instance.updateBookingStatus(
         booking: booking,
@@ -370,6 +386,7 @@ class _OwnerBookingPageState extends State<OwnerBookingPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Status booking diubah menjadi $status.')),
       );
+      _refreshBookings();
     } on SupabaseAppException catch (error) {
       if (!mounted) {
         return;
@@ -377,6 +394,8 @@ class _OwnerBookingPageState extends State<OwnerBookingPage> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(_supabaseMessage(error))));
+    } finally {
+      _setBookingUpdating(booking.id, false);
     }
   }
 
@@ -419,6 +438,7 @@ class _OwnerBookingPageState extends State<OwnerBookingPage> {
       return;
     }
 
+    _setBookingUpdating(booking.id, true);
     try {
       await SupabaseService.instance.updateBookingStatus(
         booking: booking,
@@ -431,6 +451,7 @@ class _OwnerBookingPageState extends State<OwnerBookingPage> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Booking dibatalkan: $reason')));
+      _refreshBookings();
     } on SupabaseAppException catch (error) {
       if (!mounted) {
         return;
@@ -438,6 +459,31 @@ class _OwnerBookingPageState extends State<OwnerBookingPage> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(_supabaseMessage(error))));
+    } finally {
+      _setBookingUpdating(booking.id, false);
     }
+  }
+
+  void _refreshBookings() {
+    final user = SupabaseAuth.instance.currentUser;
+    if (!mounted || user == null) {
+      return;
+    }
+    setState(() {
+      _bookingsStream = SupabaseService.instance.ownerBookingsStream(user.id);
+    });
+  }
+
+  void _setBookingUpdating(String bookingId, bool isUpdating) {
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      if (isUpdating) {
+        _updatingBookingIds.add(bookingId);
+      } else {
+        _updatingBookingIds.remove(bookingId);
+      }
+    });
   }
 }

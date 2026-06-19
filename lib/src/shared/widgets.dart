@@ -607,7 +607,7 @@ class _AuthModeChip extends StatelessWidget {
   }
 }
 
-class _InputField extends StatelessWidget {
+class _InputField extends StatefulWidget {
   const _InputField({
     required this.controller,
     required this.label,
@@ -629,12 +629,33 @@ class _InputField extends StatelessWidget {
   final VoidCallback? onTap;
 
   @override
+  State<_InputField> createState() => _InputFieldState();
+}
+
+class _InputFieldState extends State<_InputField> {
+  late bool _obscureText;
+
+  @override
+  void initState() {
+    super.initState();
+    _obscureText = widget.obscureText;
+  }
+
+  @override
+  void didUpdateWidget(covariant _InputField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.obscureText != widget.obscureText) {
+      _obscureText = widget.obscureText;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          label,
+          widget.label,
           style: const TextStyle(
             fontWeight: FontWeight.w700,
             color: Color(0xFF314040),
@@ -644,19 +665,34 @@ class _InputField extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         TextField(
-          controller: controller,
-          obscureText: obscureText,
-          keyboardType: keyboardType,
-          maxLines: obscureText ? 1 : maxLines,
-          readOnly: readOnly,
-          onTap: onTap,
+          controller: widget.controller,
+          obscureText: _obscureText,
+          keyboardType: widget.keyboardType,
+          maxLines: widget.obscureText ? 1 : widget.maxLines,
+          readOnly: widget.readOnly,
+          onTap: widget.onTap,
           style: const TextStyle(
             color: Color(0xFF182022),
             fontSize: 14,
             fontWeight: FontWeight.w600,
           ),
           decoration: InputDecoration(
-            hintText: hintText,
+            hintText: widget.hintText,
+            suffixIcon: widget.obscureText
+                ? IconButton(
+                    tooltip: _obscureText
+                        ? 'Tampilkan password'
+                        : 'Sembunyikan password',
+                    onPressed: () {
+                      setState(() => _obscureText = !_obscureText);
+                    },
+                    icon: Icon(
+                      _obscureText
+                          ? Icons.visibility_off_rounded
+                          : Icons.visibility_rounded,
+                    ),
+                  )
+                : null,
             hintStyle: const TextStyle(
               color: Color(0xFF9AA7A7),
               fontWeight: FontWeight.w500,
@@ -808,62 +844,6 @@ class _SmallPill extends StatelessWidget {
           color: Color(0xFF5D6B6B),
           fontSize: 10,
           fontWeight: FontWeight.w800,
-        ),
-      ),
-    );
-  }
-}
-
-class _DashboardShortcutChip extends StatelessWidget {
-  const _DashboardShortcutChip({
-    required this.label,
-    required this.icon,
-    required this.onTap,
-  });
-
-  final String label;
-  final IconData icon;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF4F8F8),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFFE0EBEB)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 30,
-              height: 30,
-              decoration: BoxDecoration(
-                color: const Color(0xFFE6F4F4),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(icon, size: 16, color: const Color(0xFF006A6A)),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: const TextStyle(
-                color: Color(0xFF182022),
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(width: 8),
-            const Icon(
-              Icons.arrow_outward_rounded,
-              size: 16,
-              color: Color(0xFF7B8A8A),
-            ),
-          ],
         ),
       ),
     );

@@ -76,10 +76,15 @@ create table if not exists public.chats (
   kos_snapshot jsonb not null default '{}'::jsonb,
   last_message text not null default '',
   last_message_time timestamptz,
+  last_sender_id uuid references public.profiles(id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (kos_id, penyewa_id)
 );
+
+alter table if exists public.chats
+add column if not exists last_sender_id uuid
+references public.profiles(id) on delete set null;
 
 create table if not exists public.chat_messages (
   id uuid primary key default gen_random_uuid(),
@@ -200,9 +205,65 @@ begin
 end;
 $$;
 
+create or replace function public.refresh_kos_availability()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_previous_kos_id uuid;
+  v_current_kos_id uuid;
+begin
+  if tg_op in ('UPDATE', 'DELETE') then
+    v_previous_kos_id := old.kos_id;
+  end if;
+
+  if tg_op in ('INSERT', 'UPDATE') then
+    v_current_kos_id := new.kos_id;
+  end if;
+
+  if v_previous_kos_id is not null then
+    update public.kos as k
+    set available_rooms = greatest(
+      k.total_rooms - (
+        select count(*)::integer
+        from public.bookings as b
+        where b.kos_id = v_previous_kos_id
+          and b.status not in ('Dibatalkan', 'Selesai')
+      ),
+      0
+    )
+    where k.id = v_previous_kos_id;
+  end if;
+
+  if v_current_kos_id is not null
+      and v_current_kos_id is distinct from v_previous_kos_id then
+    update public.kos as k
+    set available_rooms = greatest(
+      k.total_rooms - (
+        select count(*)::integer
+        from public.bookings as b
+        where b.kos_id = v_current_kos_id
+          and b.status not in ('Dibatalkan', 'Selesai')
+      ),
+      0
+    )
+    where k.id = v_current_kos_id;
+  end if;
+
+  if tg_op = 'DELETE' then
+    return old;
+  end if;
+  return new;
+end;
+$$;
+
 create or replace function public.refresh_kos_review_summary()
 returns trigger
 language plpgsql
+security definer
+set search_path = public
 as $$
 declare
   v_kos_id uuid;
@@ -220,7 +281,7 @@ begin
       0
     ),
     total_review = (
-      select count(*)
+      select count(*)::integer
       from public.kos_reviews
       where kos_id = v_kos_id
     )
@@ -250,6 +311,11 @@ create trigger bookings_touch_updated_at
 before update on public.bookings
 for each row execute function public.touch_updated_at();
 
+drop trigger if exists bookings_refresh_kos_availability on public.bookings;
+create trigger bookings_refresh_kos_availability
+after insert or update or delete on public.bookings
+for each row execute function public.refresh_kos_availability();
+
 drop trigger if exists kos_reviews_touch_updated_at on public.kos_reviews;
 create trigger kos_reviews_touch_updated_at
 before update on public.kos_reviews
@@ -259,6 +325,23 @@ drop trigger if exists kos_reviews_refresh_kos_summary on public.kos_reviews;
 create trigger kos_reviews_refresh_kos_summary
 after insert or update or delete on public.kos_reviews
 for each row execute function public.refresh_kos_review_summary();
+
+-- Repair rating summaries created before the review trigger was secured.
+update public.kos as k
+set
+  rating = coalesce(
+    (
+      select avg(r.rating)::numeric(3,2)
+      from public.kos_reviews as r
+      where r.kos_id = k.id
+    ),
+    0
+  ),
+  total_review = (
+    select count(*)::integer
+    from public.kos_reviews as r
+    where r.kos_id = k.id
+  );
 
 drop trigger if exists cms_home_banners_touch_updated_at on public.cms_home_banners;
 create trigger cms_home_banners_touch_updated_at
@@ -297,6 +380,7 @@ declare
   v_assigned_room text;
   v_room_index integer;
   v_total_rooms integer;
+  v_active_rooms integer;
 begin
   if auth.uid() is null then
     raise exception 'Sesi login tidak valid.';
@@ -311,13 +395,24 @@ begin
     raise exception 'Data kos tidak ditemukan.';
   end if;
 
-  if v_kos.available_rooms <= 0 then
-    raise exception 'Kamar sudah penuh.';
-  end if;
-
-  v_total_rooms := greatest(v_kos.total_rooms, v_kos.available_rooms);
+  v_total_rooms := greatest(v_kos.total_rooms, 0);
   if v_total_rooms <= 0 then
     raise exception 'Jumlah kamar belum diatur.';
+  end if;
+
+  select count(*)::integer into v_active_rooms
+  from public.bookings
+  where kos_id = v_kos.id
+    and status not in ('Dibatalkan', 'Selesai');
+
+  v_kos.available_rooms := greatest(v_total_rooms - v_active_rooms, 0);
+  update public.kos
+  set available_rooms = v_kos.available_rooms
+  where id = v_kos.id
+    and available_rooms is distinct from v_kos.available_rooms;
+
+  if v_kos.available_rooms <= 0 then
+    raise exception 'Kamar sudah penuh.';
   end if;
 
   if v_kos.owner_id = auth.uid() then
@@ -410,18 +505,34 @@ begin
   )
   returning id into v_booking_id;
 
-  update public.kos
-  set available_rooms = greatest(available_rooms - 1, 0)
-  where id = v_kos.id;
-
   return v_booking_id;
 end;
 $$;
+
+-- Repair availability values left stale by bookings completed before this fix.
+update public.kos as k
+set available_rooms = greatest(
+  k.total_rooms - (
+    select count(*)::integer
+    from public.bookings as b
+    where b.kos_id = k.id
+      and b.status not in ('Dibatalkan', 'Selesai')
+  ),
+  0
+);
+
+create table if not exists public.notification_reads (
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  notification_key text not null,
+  read_at timestamptz not null default now(),
+  primary key (user_id, notification_key)
+);
 
 alter table public.profiles enable row level security;
 alter table public.kos enable row level security;
 alter table public.chats enable row level security;
 alter table public.chat_messages enable row level security;
+alter table public.notification_reads enable row level security;
 alter table public.bookings enable row level security;
 alter table public.kos_reviews enable row level security;
 alter table public.cms_home_banners enable row level security;
@@ -501,6 +612,19 @@ for insert with check (
       and auth.uid() = any(chats.participant_ids)
   )
 );
+
+drop policy if exists notification_reads_select_self on public.notification_reads;
+create policy notification_reads_select_self on public.notification_reads
+for select using (user_id = auth.uid());
+
+drop policy if exists notification_reads_insert_self on public.notification_reads;
+create policy notification_reads_insert_self on public.notification_reads
+for insert with check (user_id = auth.uid());
+
+drop policy if exists notification_reads_update_self on public.notification_reads;
+create policy notification_reads_update_self on public.notification_reads
+for update using (user_id = auth.uid())
+with check (user_id = auth.uid());
 
 drop policy if exists bookings_select_related_or_admin on public.bookings;
 create policy bookings_select_related_or_admin on public.bookings

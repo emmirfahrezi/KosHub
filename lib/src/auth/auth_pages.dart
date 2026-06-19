@@ -161,14 +161,14 @@ class _AuthPageState extends State<AuthPage> {
                             child: _AuthModeChip(
                               label: 'Login',
                               selected: _isLogin,
-                              onTap: () => setState(() => _isLogin = true),
+                              onTap: () => _setAuthMode(true),
                             ),
                           ),
                           Expanded(
                             child: _AuthModeChip(
                               label: 'Daftar',
                               selected: !_isLogin,
-                              onTap: () => setState(() => _isLogin = false),
+                              onTap: () => _setAuthMode(false),
                             ),
                           ),
                         ],
@@ -236,7 +236,7 @@ class _AuthPageState extends State<AuthPage> {
               const SizedBox(height: 12),
               Center(
                 child: TextButton(
-                  onPressed: () => setState(() => _isLogin = !_isLogin),
+                  onPressed: () => _setAuthMode(!_isLogin),
                   child: Text(
                     _isLogin
                         ? 'Belum punya akun? Daftar sekarang'
@@ -244,47 +244,23 @@ class _AuthPageState extends State<AuthPage> {
                   ),
                 ),
               ),
-              Center(
-                child: TextButton.icon(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute<void>(
-                        builder: (_) => const AdminLoginPage(),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.admin_panel_settings_rounded),
-                  label: const Text('Masuk sebagai admin aplikasi'),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Akun KosHub',
-                      style: TextStyle(fontWeight: FontWeight.w800),
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      'Daftar sekali untuk mencari kos, menghubungi pemilik, dan mengelola booking dari satu tempat.',
-                      style: TextStyle(color: Color(0xFF5D6B6B), height: 1.45),
-                    ),
-                  ],
-                ),
-              ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  void _setAuthMode(bool isLogin) {
+    if (_isLoading || _isLogin == isLogin) {
+      return;
+    }
+    FocusManager.instance.primaryFocus?.unfocus();
+    _nameController.clear();
+    _emailController.clear();
+    _passwordController.clear();
+    _confirmPasswordController.clear();
+    setState(() => _isLogin = isLogin);
   }
 
   Future<void> _submit() async {
@@ -313,7 +289,7 @@ class _AuthPageState extends State<AuthPage> {
           email: email,
           password: password,
         );
-        await SupabaseService.instance.ensureUserProfile(
+        await SupabaseService.instance.prepareSignedInUser(
           credential.user!,
           fallbackName: credential.user!.displayName ?? email.split('@').first,
         );

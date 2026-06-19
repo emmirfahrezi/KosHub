@@ -116,6 +116,7 @@ class _MainShellState extends State<MainShell> {
                         label: item.label,
                         icon: item.icon,
                         selected: safeIndex == index,
+                        dense: destinations.length > 5,
                         onTap: () => setState(() => _currentIndex = index),
                       ),
                     );

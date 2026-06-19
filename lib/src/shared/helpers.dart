@@ -125,6 +125,40 @@ Future<void> _showLightDialog(
   );
 }
 
+Future<bool> _confirmFinishResident(
+  BuildContext context,
+  BookingData booking,
+) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: const Text('Keluarkan penghuni?'),
+        content: Text(
+          '${booking.userName} akan dipindahkan ke riwayat dan '
+          '${booking.roomLabel} langsung tersedia untuk booking baru. '
+          'Pastikan penghuni memang sudah keluar.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF9F4035),
+            ),
+            child: const Text('Ya, Keluarkan'),
+          ),
+        ],
+      );
+    },
+  );
+  return confirmed == true;
+}
+
 Future<void> _showImagePreviewDialog(
   BuildContext context, {
   required String title,
@@ -229,7 +263,7 @@ Future<void> _confirmAdminLogout(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: const Text('Keluar dari admin?'),
         content: Text(
-          'Sesi admin ${email.isEmpty ? '' : 'untuk $email '}akan diakhiri dan kamu akan diarahkan ke login admin.',
+          'Sesi admin ${email.isEmpty ? '' : 'untuk $email '}akan diakhiri dan kamu akan diarahkan ke halaman login.',
         ),
         actions: [
           TextButton(
@@ -264,16 +298,14 @@ Future<void> _confirmAdminLogout(
           ),
           title: const Text('Logout berhasil'),
           content: const Text(
-            'Kamu sudah keluar dari panel admin. Tekan tombol di bawah untuk masuk lagi.',
+            'Kamu sudah keluar dari panel admin. Tekan tombol di bawah untuk kembali ke halaman login.',
           ),
           actions: [
             FilledButton(
               onPressed: () {
                 Navigator.of(dialogContext).pop();
                 Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const AdminLoginPage(),
-                  ),
+                  MaterialPageRoute<void>(builder: (_) => const AuthGate()),
                   (_) => false,
                 );
               },

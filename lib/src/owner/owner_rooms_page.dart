@@ -22,24 +22,37 @@ String _roomAvailabilitySubtitle(BookingData? booking) {
   return '${booking.userName} - masuk ${booking.startDate}';
 }
 
-BookingData? _latestRoomBooking(
+Map<String, BookingData> _activeBookingsByRoom(
   List<BookingData> bookings,
-  String roomLabel, {
-  bool onlyActive = false,
-}) {
-  final matches =
+  List<String> roomLabels,
+) {
+  final assignments = <String, BookingData>{};
+  final unassigned = <BookingData>[];
+  final activeBookings =
       bookings
-          .where(
-            (booking) =>
-                booking.roomLabel == roomLabel &&
-                (!onlyActive || _roomBlocksAvailability(booking.status)),
-          )
+          .where((booking) => _roomBlocksAvailability(booking.status))
           .toList()
-        ..sort((a, b) => b.sortKey.compareTo(a.sortKey));
-  if (matches.isEmpty) {
-    return null;
+        ..sort((a, b) => a.sortKey.compareTo(b.sortKey));
+
+  for (final booking in activeBookings) {
+    final roomLabel = booking.roomLabel.trim();
+    if (roomLabels.contains(roomLabel) && !assignments.containsKey(roomLabel)) {
+      assignments[roomLabel] = booking;
+    } else {
+      unassigned.add(booking);
+    }
   }
-  return matches.first;
+
+  final emptyRooms = roomLabels
+      .where((roomLabel) => !assignments.containsKey(roomLabel))
+      .iterator;
+  for (final booking in unassigned) {
+    if (!emptyRooms.moveNext()) {
+      break;
+    }
+    assignments[emptyRooms.current] = booking;
+  }
+  return assignments;
 }
 
 class OwnerRoomsPage extends StatelessWidget {
@@ -81,7 +94,9 @@ class OwnerRoomsPage extends StatelessWidget {
               return const _LoadingScreen(label: 'Menghitung kondisi kamar...');
             }
 
-            final bookings = bookingsSnapshot.data ?? const <BookingData>[];
+            final bookings = (bookingsSnapshot.data ?? const <BookingData>[])
+                .where((booking) => booking.kos.id == kos.id)
+                .toList();
             final activeRoomBookings = bookings
                 .where((booking) => _roomBlocksAvailability(booking.status))
                 .toList();
@@ -94,27 +109,18 @@ class OwnerRoomsPage extends StatelessWidget {
                 totalRooms,
                 (index) => 'Kamar ${(index + 1).toString().padLeft(2, '0')}',
               ),
-              ...bookings
-                  .map((booking) => booking.roomLabel.trim())
-                  .where((label) => label.isNotEmpty && label != '-'),
             ];
-            final seenRoomLabels = <String>{};
-            final orderedRoomLabels = roomLabels
-                .where((label) => seenRoomLabels.add(label))
-                .toList();
-            final currentRoomBookings = orderedRoomLabels
-                .map(
-                  (roomLabel) =>
-                      _latestRoomBooking(bookings, roomLabel, onlyActive: true),
-                )
-                .whereType<BookingData>()
-                .toList();
+            final currentBookingsByRoom = _activeBookingsByRoom(
+              bookings,
+              roomLabels,
+            );
+            final currentRoomBookings = currentBookingsByRoom.values.toList();
             final occupiedCount = currentRoomBookings
                 .where((booking) => _roomIsOccupied(booking.status))
                 .length;
             final bookedCount = currentRoomBookings.length - occupiedCount;
             final availableCount = math.max(
-              orderedRoomLabels.length - currentRoomBookings.length,
+              roomLabels.length - currentRoomBookings.length,
               0,
             );
 
@@ -184,12 +190,8 @@ class OwnerRoomsPage extends StatelessWidget {
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 12),
-                  ...orderedRoomLabels.map((roomLabel) {
-                    final currentBooking = _latestRoomBooking(
-                      bookings,
-                      roomLabel,
-                      onlyActive: true,
-                    );
+                  ...roomLabels.map((roomLabel) {
+                    final currentBooking = currentBookingsByRoom[roomLabel];
                     final occupied =
                         currentBooking != null &&
                         _roomIsOccupied(currentBooking.status);
@@ -199,7 +201,11 @@ class OwnerRoomsPage extends StatelessWidget {
                         !occupied;
                     final roomHistory =
                         bookings
-                            .where((booking) => booking.roomLabel == roomLabel)
+                            .where(
+                              (booking) =>
+                                  booking.roomLabel == roomLabel ||
+                                  booking.id == currentBooking?.id,
+                            )
                             .toList()
                           ..sort((a, b) => b.sortKey.compareTo(a.sortKey));
 

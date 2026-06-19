@@ -50,6 +50,7 @@ class _HomePageState extends State<HomePage> {
           ],
         ),
         actions: [
+          const _TenantNotificationBadgeButton(),
           IconButton(
             onPressed: widget.onOpenChat,
             icon: const Icon(Icons.chat_bubble_outline_rounded),

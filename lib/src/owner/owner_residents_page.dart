@@ -1,5 +1,21 @@
 part of '../../main.dart';
 
+int _leaseDaysRemaining(DateTime endDate) {
+  final today = DateUtils.dateOnly(DateTime.now());
+  return DateUtils.dateOnly(endDate).difference(today).inDays;
+}
+
+String _leaseEndStatusLabel(DateTime endDate) {
+  final remainingDays = _leaseDaysRemaining(endDate);
+  if (remainingDays < 0) {
+    return 'Lewat ${remainingDays.abs()} hari';
+  }
+  if (remainingDays == 0) {
+    return 'Berakhir hari ini';
+  }
+  return '$remainingDays hari lagi';
+}
+
 class OwnerResidentsPage extends StatefulWidget {
   const OwnerResidentsPage({
     super.key,
@@ -16,7 +32,7 @@ class OwnerResidentsPage extends StatefulWidget {
 
 class _OwnerResidentsPageState extends State<OwnerResidentsPage> {
   late final TextEditingController _searchController;
-  late final Stream<List<BookingData>> _bookingsStream;
+  late Stream<List<BookingData>> _bookingsStream;
   String _query = '';
 
   @override
@@ -47,7 +63,7 @@ class _OwnerResidentsPageState extends State<OwnerResidentsPage> {
             isScrollable: true,
             tabs: [
               Tab(text: 'Aktif'),
-              Tab(text: 'Akan Keluar'),
+              Tab(text: 'Masa Sewa Berakhir'),
               Tab(text: 'Riwayat'),
             ],
           ),
@@ -63,13 +79,14 @@ class _OwnerResidentsPageState extends State<OwnerResidentsPage> {
             final active = bookings
                 .where((booking) => booking.status == 'Sudah Check-in')
                 .toList();
-            final leavingSoon = active
-                .where(
-                  (booking) =>
-                      booking.endDateValue.difference(DateTime.now()).inDays <=
-                      30,
-                )
-                .toList();
+            final leavingSoon =
+                active
+                    .where(
+                      (booking) =>
+                          _leaseDaysRemaining(booking.endDateValue) <= 30,
+                    )
+                    .toList()
+                  ..sort((a, b) => a.endDateValue.compareTo(b.endDateValue));
             final history = bookings
                 .where(
                   (booking) =>
@@ -203,6 +220,13 @@ class _OwnerResidentsPageState extends State<OwnerResidentsPage> {
                         label: 'Tanggal keluar',
                         value: booking.endDate,
                       ),
+                      if (booking.status == 'Sudah Check-in') ...[
+                        const SizedBox(height: 6),
+                        _SummaryRow(
+                          label: 'Sisa masa sewa',
+                          value: _leaseEndStatusLabel(booking.endDateValue),
+                        ),
+                      ],
                       const SizedBox(height: 6),
                       _SummaryRow(
                         label: 'No emergency',
@@ -252,6 +276,9 @@ class _OwnerResidentsPageState extends State<OwnerResidentsPage> {
   }
 
   Future<void> _finishResident(BookingData booking) async {
+    if (!await _confirmFinishResident(context, booking) || !mounted) {
+      return;
+    }
     try {
       await SupabaseService.instance.updateBookingStatus(
         booking: booking,
@@ -284,12 +311,18 @@ class _OwnerResidentsPageState extends State<OwnerResidentsPage> {
     }).toList();
   }
 
-  void _openResidentDetail(BookingData booking) {
-    Navigator.push(
+  Future<void> _openResidentDetail(BookingData booking) async {
+    final changed = await Navigator.push<bool>(
       context,
-      MaterialPageRoute<void>(
+      MaterialPageRoute<bool>(
         builder: (_) => ResidentDetailPage(booking: booking),
       ),
     );
+    if (changed == true && mounted) {
+      final user = SupabaseAuth.instance.currentUser!;
+      setState(() {
+        _bookingsStream = SupabaseService.instance.ownerBookingsStream(user.id);
+      });
+    }
   }
 }

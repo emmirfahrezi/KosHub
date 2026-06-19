@@ -1,6 +1,6 @@
 part of '../../main.dart';
 
-class OwnerNotificationsPage extends StatelessWidget {
+class OwnerNotificationsPage extends StatefulWidget {
   const OwnerNotificationsPage({
     super.key,
     required this.bookings,
@@ -11,94 +11,263 @@ class OwnerNotificationsPage extends StatelessWidget {
   final KosData? kos;
 
   @override
-  Widget build(BuildContext context) {
-    final notifications = <_OwnerNotificationData>[
-      ...bookings
-          .where((booking) => booking.status == 'Menunggu Konfirmasi')
-          .map(
-            (booking) => _OwnerNotificationData(
-              title: 'Ada booking baru',
-              subtitle: '${booking.userName} booking ${booking.roomLabel}',
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute<void>(
-                    builder: (_) => OwnerBookingDetailPage(booking: booking),
-                  ),
-                );
-              },
-            ),
-          ),
-      ...bookings
-          .where((booking) => booking.status == 'Sudah Check-in')
-          .where((booking) => booking.note.trim().isNotEmpty)
-          .map(
-            (booking) => _OwnerNotificationData(
-              title: 'Penghuni aktif perlu dicek',
-              subtitle:
-                  '${booking.userName} punya catatan aktif untuk ditinjau',
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute<void>(
-                    builder: (_) => ResidentDetailPage(booking: booking),
-                  ),
-                );
-              },
-            ),
-          ),
-    ];
+  State<OwnerNotificationsPage> createState() => _OwnerNotificationsPageState();
+}
 
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        title: const Text('Notifikasi'),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
-        children: [
-          if (kos != null)
-            _OwnerSectionCard(
-              title: 'Kos aktif',
-              subtitle: '${kos!.name} - ${kos!.area}',
-              child: const Text(
-                'Semua notifikasi di bawah akan mengarahkan kamu ke halaman yang terkait.',
-              ),
-            ),
-          if (notifications.isNotEmpty) const SizedBox(height: 16),
-          if (notifications.isEmpty)
-            const _EmptyStateCard(
-              title: 'Belum ada notifikasi',
-              subtitle:
-                  'Booking baru dan aktivitas penting penghuni akan muncul di sini.',
-            )
-          else
-            ...notifications.map(
-              (item) => Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(22),
+class _OwnerNotificationsPageState extends State<OwnerNotificationsPage> {
+  final Set<String> _locallyReadKeys = <String>{};
+
+  @override
+  Widget build(BuildContext context) {
+    final user = SupabaseAuth.instance.currentUser!;
+
+    return _OwnerNotificationFeed(
+      userId: user.id,
+      bookings: widget.bookings,
+      locallyReadKeys: _locallyReadKeys,
+      builder: (context, notifications) {
+        return Scaffold(
+          appBar: AppBar(
+            backgroundColor: Colors.white,
+            title: const Text('Notifikasi'),
+          ),
+          body: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
+            children: [
+              if (widget.kos != null)
+                _OwnerSectionCard(
+                  title: 'Kos aktif',
+                  subtitle: '${widget.kos!.name} - ${widget.kos!.area}',
+                  child: const Text(
+                    'Semua notifikasi di bawah akan mengarahkan kamu ke halaman yang terkait.',
+                  ),
                 ),
-                child: ListTile(
-                  onTap: item.onTap,
-                  leading: const CircleAvatar(
-                    backgroundColor: Color(0xFFEAF5F5),
-                    child: Icon(
-                      Icons.notifications_active_rounded,
-                      color: Color(0xFF006A6A),
+              if (notifications.isNotEmpty) const SizedBox(height: 16),
+              if (notifications.isEmpty)
+                const _EmptyStateCard(
+                  title: 'Belum ada notifikasi',
+                  subtitle:
+                      'Booking baru dan aktivitas penting penghuni akan muncul di sini.',
+                )
+              else
+                ...notifications.map(
+                  (item) => Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(22),
+                    ),
+                    child: ListTile(
+                      onTap: () => _openNotification(item),
+                      leading: CircleAvatar(
+                        backgroundColor: const Color(0xFFEAF5F5),
+                        child: Icon(item.icon, color: const Color(0xFF006A6A)),
+                      ),
+                      title: Text(item.title),
+                      subtitle: Text(item.subtitle),
+                      trailing: const Icon(Icons.chevron_right_rounded),
                     ),
                   ),
-                  title: Text(item.title),
-                  subtitle: Text(item.subtitle),
-                  trailing: const Icon(Icons.chevron_right_rounded),
                 ),
-              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _openNotification(_OwnerNotificationData notification) async {
+    setState(() => _locallyReadKeys.add(notification.key));
+    try {
+      await SupabaseService.instance.markNotificationRead(notification.key);
+    } catch (_) {
+      if (mounted) {
+        setState(() => _locallyReadKeys.remove(notification.key));
+      }
+      return;
+    }
+    if (mounted) {
+      await notification.open(context);
+    }
+  }
+}
+
+class _OwnerNotificationBadgeButton extends StatefulWidget {
+  const _OwnerNotificationBadgeButton({
+    required this.bookings,
+    required this.kos,
+  });
+
+  final List<BookingData> bookings;
+  final KosData? kos;
+
+  @override
+  State<_OwnerNotificationBadgeButton> createState() =>
+      _OwnerNotificationBadgeButtonState();
+}
+
+class _OwnerNotificationBadgeButtonState
+    extends State<_OwnerNotificationBadgeButton> {
+  int _refreshKey = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final user = SupabaseAuth.instance.currentUser!;
+    return _OwnerNotificationFeed(
+      key: ValueKey(_refreshKey),
+      userId: user.id,
+      bookings: widget.bookings,
+      builder: (context, notifications) {
+        final count = notifications.length;
+        return Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: Badge(
+            isLabelVisible: count > 0,
+            backgroundColor: const Color(0xFFD92D20),
+            label: Text(count > 99 ? '99+' : '$count'),
+            child: IconButton(
+              tooltip: 'Notifikasi',
+              onPressed: () async {
+                await Navigator.push<void>(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) => OwnerNotificationsPage(
+                      bookings: widget.bookings,
+                      kos: widget.kos,
+                    ),
+                  ),
+                );
+                if (mounted) {
+                  setState(() => _refreshKey++);
+                }
+              },
+              icon: const Icon(Icons.notifications_none_rounded),
             ),
-        ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _OwnerNotificationFeed extends StatelessWidget {
+  const _OwnerNotificationFeed({
+    super.key,
+    required this.userId,
+    required this.bookings,
+    required this.builder,
+    this.locallyReadKeys = const <String>{},
+  });
+
+  final String userId;
+  final List<BookingData> bookings;
+  final Set<String> locallyReadKeys;
+  final Widget Function(
+    BuildContext context,
+    List<_OwnerNotificationData> notifications,
+  )
+  builder;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<ChatPreviewData>>(
+      stream: SupabaseService.instance.userChatsStream(userId),
+      builder: (context, chatsSnapshot) {
+        return StreamBuilder<Set<String>>(
+          stream: SupabaseService.instance.notificationReadKeysStream(userId),
+          builder: (context, readsSnapshot) {
+            final readKeys = <String>{
+              ...?readsSnapshot.data,
+              ...locallyReadKeys,
+            };
+            final notifications =
+                _ownerNotifications(
+                  userId: userId,
+                  chats: chatsSnapshot.data ?? const <ChatPreviewData>[],
+                  bookings: bookings,
+                )..removeWhere(
+                  (notification) => readKeys.contains(notification.key),
+                );
+            notifications.sort((a, b) => b.sortKey.compareTo(a.sortKey));
+            return builder(context, notifications);
+          },
+        );
+      },
+    );
+  }
+}
+
+List<_OwnerNotificationData> _ownerNotifications({
+  required String userId,
+  required List<ChatPreviewData> chats,
+  required List<BookingData> bookings,
+}) {
+  final notifications = <_OwnerNotificationData>[];
+
+  for (final chat in chats.where(
+    (chat) =>
+        chat.lastMessage.isNotEmpty &&
+        chat.lastSenderId.isNotEmpty &&
+        chat.lastSenderId != userId,
+  )) {
+    notifications.add(
+      _OwnerNotificationData(
+        key: 'chat:${chat.id}:${chat.sortKey.microsecondsSinceEpoch}',
+        title: 'Pesan terbaru dari ${chat.displayNameFor(userId)}',
+        subtitle: chat.lastMessage,
+        icon: Icons.chat_bubble_rounded,
+        sortKey: chat.sortKey,
+        open: (context) => Navigator.push<void>(
+          context,
+          MaterialPageRoute<void>(
+            builder: (_) => ChatDetailPage(kos: chat.kos, chatId: chat.id),
+          ),
+        ),
       ),
     );
   }
+
+  for (final booking in bookings.where(
+    (booking) => booking.status == 'Menunggu Konfirmasi',
+  )) {
+    notifications.add(
+      _OwnerNotificationData(
+        key: 'owner:booking:${booking.id}:${booking.status}',
+        title: 'Ada booking baru',
+        subtitle: '${booking.userName} booking ${booking.roomLabel}',
+        icon: Icons.fact_check_rounded,
+        sortKey: booking.sortKey,
+        open: (context) => Navigator.push<void>(
+          context,
+          MaterialPageRoute<void>(
+            builder: (_) => OwnerBookingDetailPage(booking: booking),
+          ),
+        ),
+      ),
+    );
+  }
+
+  for (final booking in bookings.where(
+    (booking) =>
+        booking.status == 'Sudah Check-in' && booking.note.trim().isNotEmpty,
+  )) {
+    notifications.add(
+      _OwnerNotificationData(
+        key: 'owner:resident-note:${booking.id}',
+        title: 'Penghuni aktif perlu dicek',
+        subtitle: '${booking.userName} punya catatan aktif untuk ditinjau',
+        icon: Icons.person_rounded,
+        sortKey: booking.sortKey,
+        open: (context) => Navigator.push<void>(
+          context,
+          MaterialPageRoute<void>(
+            builder: (_) => ResidentDetailPage(booking: booking),
+          ),
+        ),
+      ),
+    );
+  }
+  return notifications;
 }
 
 class OwnerSettingsPage extends StatelessWidget {
@@ -562,12 +731,18 @@ class _TimelineTile extends StatelessWidget {
 
 class _OwnerNotificationData {
   const _OwnerNotificationData({
+    required this.key,
     required this.title,
     required this.subtitle,
-    required this.onTap,
+    required this.icon,
+    required this.sortKey,
+    required this.open,
   });
 
+  final String key;
   final String title;
   final String subtitle;
-  final VoidCallback onTap;
+  final IconData icon;
+  final DateTime sortKey;
+  final Future<void> Function(BuildContext context) open;
 }

@@ -8,10 +8,7 @@ class ChatListPage extends StatelessWidget {
     final user = SupabaseAuth.instance.currentUser!;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Chat Pemilik Kos'),
-        backgroundColor: Colors.white,
-      ),
+      appBar: AppBar(title: const Text('Chat'), backgroundColor: Colors.white),
       body: StreamBuilder<List<ChatPreviewData>>(
         stream: SupabaseService.instance.userChatsStream(user.id),
         builder: (context, snapshot) {
@@ -35,7 +32,7 @@ class ChatListPage extends StatelessWidget {
               child: _EmptyStateCard(
                 title: 'Belum ada chat',
                 subtitle:
-                    'Buka detail kos lalu tekan tombol chat untuk mulai menghubungi pemilik.',
+                    'Percakapan aktif dengan penyewa atau pemilik kos akan muncul di sini.',
               ),
             );
           }
@@ -278,10 +275,11 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
                   );
                 }
                 return ListView.builder(
+                  reverse: true,
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
                   itemCount: messages.length,
                   itemBuilder: (context, index) {
-                    final message = messages[index];
+                    final message = messages[messages.length - 1 - index];
                     final isMine = message.senderId == currentUserId;
                     return Align(
                       alignment: isMine
