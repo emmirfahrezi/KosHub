@@ -15,7 +15,9 @@ class KosData {
     required this.description,
     required this.facilities,
     required this.gallery,
-    required this.approvalMode,
+    required this.latitude,
+    required this.longitude,
+    required this.googleMapsLink,
     required this.ownerId,
     required this.ownerName,
     required this.ownerStatus,
@@ -37,7 +39,9 @@ class KosData {
   final String description;
   final List<String> facilities;
   final List<String> gallery;
-  final String approvalMode;
+  final double latitude;
+  final double longitude;
+  final String googleMapsLink;
   final String ownerId;
   final String ownerName;
   final String ownerStatus;
@@ -84,7 +88,9 @@ class KosData {
       gallery: (map['foto_urls'] as List<dynamic>? ?? const [])
           .map((item) => item.toString())
           .toList(),
-      approvalMode: map['approval_mode'] as String? ?? 'Manual Approval',
+      latitude: (map['latitude'] as num?)?.toDouble() ?? 0.0,
+      longitude: (map['longitude'] as num?)?.toDouble() ?? 0.0,
+      googleMapsLink: map['google_maps_link'] as String? ?? '',
       ownerId: map['owner_id'] as String? ?? '',
       ownerName: map['owner_name'] as String? ?? 'Pemilik Kos',
       ownerStatus: map['owner_status'] as String? ?? 'Online',
@@ -108,7 +114,9 @@ class KosData {
       'harga_mulai': price,
       'fasilitas': facilities,
       'gender': category,
-      'approval_mode': approvalMode,
+      'latitude': latitude,
+      'longitude': longitude,
+      'google_maps_link': googleMapsLink,
       'foto_urls': gallery,
       'rating': rating,
       'total_review': reviewCount,

@@ -369,7 +369,7 @@ class OwnerSettingsPage extends StatelessWidget {
                     icon: Icons.edit_rounded,
                     title: 'Edit Profil Kos',
                     subtitle:
-                        'Ubah nama kos, alamat, foto, mode approval, dan fasilitas',
+                        'Ubah nama kos, alamat, foto, dan fasilitas',
                     onTap: () {
                       Navigator.push(
                         context,

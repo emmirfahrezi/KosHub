@@ -61,9 +61,6 @@ class OwnerDashboardPage extends StatelessWidget {
             final bookingToday = bookings
                 .where((booking) => _isSameDay(booking.sortKey, now))
                 .length;
-            final approvalModeLabel = kos == null
-                ? ''
-                : _ownerApprovalModeLabel(kos.approvalMode);
 
             return Scaffold(
               appBar: AppBar(
@@ -208,7 +205,7 @@ class OwnerDashboardPage extends StatelessWidget {
                               icon: Icons.rule_rounded,
                               label: kos == null
                                   ? 'Perlu dilengkapi'
-                                  : 'Mode $approvalModeLabel',
+                                  : 'Mode Manual',
                             ),
                           ],
                         ),
@@ -515,16 +512,7 @@ class OwnerDashboardPage extends StatelessWidget {
   }
 }
 
-String _ownerApprovalModeLabel(String mode) {
-  switch (mode) {
-    case 'Auto Approval':
-      return 'Otomatis';
-    case 'Manual Approval':
-      return 'Manual';
-    default:
-      return mode;
-  }
-}
+// _ownerApprovalModeLabel has been removed as all kos use Manual Approval.
 
 class _OwnerDashboardHeading extends StatelessWidget {
   const _OwnerDashboardHeading({required this.title, required this.subtitle});

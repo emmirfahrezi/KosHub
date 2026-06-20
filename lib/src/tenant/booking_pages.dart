@@ -107,6 +107,73 @@ class _BookingFormPageState extends State<BookingFormPage> {
             ),
           ),
           const SizedBox(height: 20),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: const Color(0xFFE2E7E7)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.location_on_rounded, color: Color(0xFF006A6A), size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      'Lokasi Kos',
+                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  widget.kos.address,
+                  style: const TextStyle(color: Color(0xFF5D6B6B), fontSize: 13, height: 1.4),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                        final mapsLink = widget.kos.googleMapsLink.trim();
+                        final lat = widget.kos.latitude;
+                        final lng = widget.kos.longitude;
+                        final Uri url;
+                        if (mapsLink.isNotEmpty && (mapsLink.startsWith('http://') || mapsLink.startsWith('https://'))) {
+                          url = Uri.parse(mapsLink);
+                        } else if (lat != 0.0 || lng != 0.0) {
+                          url = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Lokasi kos belum tersedia.')),
+                          );
+                          return;
+                        }
+                        try {
+                          await launchUrl(url, mode: LaunchMode.externalApplication);
+                        } catch (_) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Tidak dapat membuka Google Maps.')),
+                            );
+                          }
+                        }
+                      },
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      side: const BorderSide(color: Color(0xFFB8D7D7)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    icon: const Icon(Icons.explore_outlined, size: 16),
+                    label: const Text('Buka Google Maps', style: TextStyle(fontSize: 13)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
           _InputField(
             controller: _startDateController,
             label: 'Tanggal mulai sewa',
@@ -180,19 +247,17 @@ class _BookingFormPageState extends State<BookingFormPage> {
               color: const Color(0xFFFFF5DD),
               borderRadius: BorderRadius.circular(24),
             ),
-            child: Column(
+            child: const Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Info Booking',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
                 ),
-                const SizedBox(height: 10),
+                SizedBox(height: 10),
                 Text(
-                  widget.kos.approvalMode == 'Auto Approval'
-                      ? 'Kos ini memakai Auto Approval. Booking otomatis dikonfirmasi kalau bukti DP sudah diisi.'
-                      : 'Kos ini memakai Manual Approval. Pemilik akan review booking dan bukti DP lebih dulu.',
-                  style: const TextStyle(
+                  'Pemilik kos menggunakan sistem Manual Approval. Pemilik akan meninjau pengajuan sewa dan bukti DP Anda terlebih dahulu.',
+                  style: TextStyle(
                     color: Color(0xFF735B00),
                     height: 1.45,
                   ),
@@ -756,6 +821,71 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
                       ),
                     ],
                   ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          _OwnerSectionCard(
+            title: 'Lokasi Kos',
+            subtitle: 'Alamat lengkap dan koordinat kos.',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  booking.kos.address,
+                  style: const TextStyle(
+                    color: Color(0xFF182022),
+                    fontWeight: FontWeight.w600,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    const Icon(Icons.explore_outlined, size: 16, color: Color(0xFF5D6B6B)),
+                    const SizedBox(width: 6),
+                    Text(
+                      (booking.kos.latitude != 0.0 || booking.kos.longitude != 0.0)
+                          ? '${booking.kos.latitude.toStringAsFixed(6)}, ${booking.kos.longitude.toStringAsFixed(6)}'
+                          : 'Koordinat belum diisi pemilik',
+                      style: const TextStyle(fontSize: 12, color: Color(0xFF5D6B6B), fontWeight: FontWeight.w600),
+                    ),
+                    const Spacer(),
+                    TextButton.icon(
+                      onPressed: () async {
+                        final mapsLink = booking.kos.googleMapsLink.trim();
+                        final lat = booking.kos.latitude;
+                        final lng = booking.kos.longitude;
+                        final Uri url;
+                        if (mapsLink.isNotEmpty && (mapsLink.startsWith('http://') || mapsLink.startsWith('https://'))) {
+                          url = Uri.parse(mapsLink);
+                        } else if (lat != 0.0 || lng != 0.0) {
+                          url = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Lokasi kos belum tersedia.')),
+                          );
+                          return;
+                        }
+                        try {
+                          await launchUrl(url, mode: LaunchMode.externalApplication);
+                        } catch (_) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Tidak dapat membuka Google Maps.')),
+                            );
+                          }
+                        }
+                      },
+                      icon: const Icon(Icons.explore_outlined, size: 16),
+                      label: const Text('Buka Maps', style: TextStyle(fontSize: 12)),
+                      style: TextButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        foregroundColor: const Color(0xFF006A6A),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

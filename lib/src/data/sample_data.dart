@@ -1,4 +1,4 @@
-﻿part of '../../main.dart';
+part of '../../main.dart';
 class DemoTenantAccount {
   const DemoTenantAccount({
     required this.name,
@@ -170,6 +170,9 @@ const Map<String, dynamic> _sampleKosMap1 = {
     'https://lh3.googleusercontent.com/aida-public/AB6AXuC2D57JOt6UVKCAyyDeDdptmIBGYgck1Ue48jjfJQb3kIU95FQdBMD6VCxfQbBp0YPh8V-jOCjqg__tiHnXkfZTf48h5dD9p0umsCPvfz10JYJ10Wep4WWe8XCZRp40gokF-HLXaCSdn2A-w4Muc8igEC42zgaGYzcSsoxXZIDcZxToKULKyVarbgerAjGTDPDsrRTglAx_GheZmLCJIbjbxUqBPYseBCZ1quwgl5BnTKS-O7mC0pCq82MJECLzhJ9cqfDV5ea9',
     'https://lh3.googleusercontent.com/aida-public/AB6AXuDn4tW5bdE8f1lqK3t3lYIgcPfwHcKHMo5tQfvpjQluS7BD0zV_3tvTgIKGeqyB5reZIeue7h3ixhunQli9uywMlzXvFSd4-oBKv340V8O5yHvYohZ8WLjiXZa1wnuLuSdGvdY-nTX3IkZkewXkfOrXOpqLKt8Vw9dfjzwxUCrExOjOjdJlJ7cK386R-Lcnym2wiSAE-o7ovXu4qZLndSqqn0I9IXgZpuo5H4h75guKvOTzPm7QgwQzRff7CGdfpez5BJGIjCnA',
   ],
+  'latitude': -6.1919,
+  'longitude': 106.8327,
+  'google_maps_link': 'https://maps.google.com/?q=-6.1919,106.8327',
   'rating': 4.8,
   'total_review': 120,
   'available_rooms': 3,
@@ -194,9 +197,11 @@ const Map<String, dynamic> _sampleKosMap2 = {
     'https://lh3.googleusercontent.com/aida-public/AB6AXuAogmMwDw1tdNckktoBtTIzdjTITVdLL8ZGZqMyKgS2nPXQZi3dXnNiH5YmQUGLXt7ao_eVWqhEXBUMe6U8edaHSCbbS1bXulHzgc6Cys3Mvf9rm7tjQk4nCl6zH5x_L0GcWFLaV-gQcQca4PVv2p9s8bP9jXLeojMuls_q5WFMlhWbjOVCxI5frkyRp5FYRRimGmNwIuIAK17wmpnOBPWg31wTuAQyIv1m09lAM5cLhF3LFzI4TIpgLDG6mx_kKjz8q6YElb7f',
     'https://lh3.googleusercontent.com/aida-public/AB6AXuBTtRX9PGRevp8GKF9nCE-UV8z1Tkj1c21GYZGl6QBU6eg39HNS01x779ls19eCLmTN7VFTHP4KRdzl8g-EkvSEuzLgb7_zyUlX4jrbQmlkPoLDWp11R_VXIsEgZOsyf-G9gDe3JXJ02CXYVIq_siC_2uItA6M81wUMveDwySY74XjW6bwc_4E1FvyyVFBtw6f7kkq8o94d0WwzjazE13X5Bm9Hljj6JKUw5SRMVriA5ppgKmxLph9qaoXqf14dEa_p2JCWQ7x6',
   ],
+  'latitude': -6.2515,
+  'longitude': 106.8159,
+  'google_maps_link': 'https://maps.google.com/?q=-6.2515,106.8159',
   'rating': 4.9,
   'total_review': 85,
   'available_rooms': 2,
   'status': 'active',
 };
-

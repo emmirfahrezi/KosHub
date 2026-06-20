@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
+import 'package:url_launcher/url_launcher.dart';
 
 part 'src/auth/auth_pages.dart';
 part 'src/shell/main_shell.dart';

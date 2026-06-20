@@ -27,15 +27,17 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
   final _bankAccountController = TextEditingController();
   final _paymentProofController = TextEditingController();
   final _voucherController = TextEditingController();
+  final _googleMapsLinkController = TextEditingController();
   Uint8List? _selectedKosPhotoBytes;
   String? _selectedKosPhotoName;
   Uint8List? _selectedPaymentProofBytes;
   String? _selectedPaymentProofName;
 
   String _selectedCategory = 'Campur';
-  String _selectedApprovalMode = 'Manual Approval';
   bool _saving = false;
   int _discountAmount = 0;
+  bool _uploadingKosPhoto = false;
+  bool _uploadingPaymentProof = false;
 
   @override
   void initState() {
@@ -79,7 +81,13 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
     _voucherController.text = widget.profile?.ownerVoucherCode ?? '';
     _discountAmount = widget.profile?.ownerActivationDiscount ?? 0;
     _selectedCategory = existingKos?.category ?? 'Campur';
-    _selectedApprovalMode = existingKos?.approvalMode ?? 'Manual Approval';
+    // Pre-fill Google Maps link from existing kos
+    if (existingKos != null && existingKos.googleMapsLink.isNotEmpty) {
+      _googleMapsLinkController.text = existingKos.googleMapsLink;
+    } else if (existingKos != null && existingKos.latitude != 0.0) {
+      _googleMapsLinkController.text =
+          'https://www.google.com/maps/search/?api=1&query=${existingKos.latitude},${existingKos.longitude}';
+    }
   }
 
   @override
@@ -99,6 +107,7 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
     _bankAccountController.dispose();
     _paymentProofController.dispose();
     _voucherController.dispose();
+    _googleMapsLinkController.dispose();
     super.dispose();
   }
 
@@ -275,6 +284,7 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
               imageBytes: _selectedPaymentProofBytes,
               fileName: _selectedPaymentProofName,
               onPick: _pickPaymentProofImage,
+              isLoading: _uploadingPaymentProof,
             ),
             const SizedBox(height: 20),
           ],
@@ -301,6 +311,48 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
             label: 'Alamat lengkap',
             hintText: 'Masukkan alamat kos',
             maxLines: 2,
+          ),
+          const SizedBox(height: 16),
+          // ── Lokasi Google Maps ──────────────────────────────────
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: const Color(0xFFE4ECEC)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.location_on_rounded, color: Color(0xFF006A6A), size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      'Lokasi di Google Maps',
+                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Buka Google Maps → cari kos → salin link dari tombol "Bagikan" atau "Share".',
+                  style: TextStyle(color: Color(0xFF5D6B6B), fontSize: 12, height: 1.4),
+                ),
+                const SizedBox(height: 12),
+                _InputField(
+                  controller: _googleMapsLinkController,
+                  label: 'Link Google Maps',
+                  hintText: 'Paste link dari Google Maps di sini',
+                  keyboardType: TextInputType.url,
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Koordinat latitude & longitude akan diekstrak otomatis dari link.',
+                  style: TextStyle(color: Color(0xFF7E9090), fontSize: 11, height: 1.4),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 16),
           _InputField(
@@ -331,13 +383,6 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
             onChanged: (value) => setState(() => _selectedCategory = value),
           ),
           const SizedBox(height: 16),
-          _SelectCard(
-            label: 'Persetujuan booking',
-            value: _selectedApprovalMode,
-            items: const ['Manual Approval', 'Auto Approval'],
-            onChanged: (value) => setState(() => _selectedApprovalMode = value),
-          ),
-          const SizedBox(height: 16),
           _InputField(
             controller: _facilityController,
             label: 'Fasilitas',
@@ -353,12 +398,13 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
             imageBytes: _selectedKosPhotoBytes,
             fileName: _selectedKosPhotoName,
             onPick: _pickKosPhotoImage,
+            isLoading: _uploadingKosPhoto,
           ),
           const SizedBox(height: 24),
           SizedBox(
             width: double.infinity,
             child: FilledButton(
-              onPressed: _saving ? null : _submit,
+              onPressed: (_saving || _uploadingKosPhoto || _uploadingPaymentProof) ? null : _submit,
               style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFF006A6A),
                 foregroundColor: Colors.white,
@@ -402,7 +448,38 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
     setState(() {
       _selectedKosPhotoBytes = bytes;
       _selectedKosPhotoName = file.name;
+      _uploadingKosPhoto = true;
     });
+
+    try {
+      final user = SupabaseAuth.instance.currentUser!;
+      final url = await SupabaseService.instance.uploadOwnerImage(
+        user: user,
+        bytes: bytes,
+        fileName: file.name,
+        folder: 'kos-images',
+      );
+      if (mounted) {
+        setState(() {
+          _photoController.text = url;
+        });
+        _showMessage('Foto kos berhasil diunggah.');
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _selectedKosPhotoBytes = null;
+          _selectedKosPhotoName = null;
+        });
+        _showMessage('Gagal mengunggah foto kos. Silakan coba lagi.');
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _uploadingKosPhoto = false;
+        });
+      }
+    }
   }
 
   Future<void> _pickPaymentProofImage() async {
@@ -421,10 +498,46 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
     setState(() {
       _selectedPaymentProofBytes = bytes;
       _selectedPaymentProofName = file.name;
+      _uploadingPaymentProof = true;
     });
+
+    try {
+      final user = SupabaseAuth.instance.currentUser!;
+      final url = await SupabaseService.instance.uploadOwnerImage(
+        user: user,
+        bytes: bytes,
+        fileName: file.name,
+        folder: 'payment-proofs',
+      );
+      if (mounted) {
+        setState(() {
+          _paymentProofController.text = url;
+        });
+        _showMessage('Bukti pembayaran berhasil diunggah.');
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _selectedPaymentProofBytes = null;
+          _selectedPaymentProofName = null;
+        });
+        _showMessage('Gagal mengunggah bukti pembayaran. Silakan coba lagi.');
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _uploadingPaymentProof = false;
+        });
+      }
+    }
   }
 
   Future<void> _submit() async {
+    if (_uploadingKosPhoto || _uploadingPaymentProof) {
+      _showMessage('Mohon tunggu hingga proses upload selesai.');
+      return;
+    }
+
     final ownerName = _ownerNameController.text.trim();
     final phoneNumber = _phoneController.text.trim();
     final ktpNumber = _ktpController.text.trim();
@@ -460,6 +573,12 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
     final hasPaymentProof =
         _selectedPaymentProofBytes != null || paymentProofUrl.trim().isNotEmpty;
 
+    final googleMapsLinkVal = _googleMapsLinkController.text.trim();
+    // Auto-extract lat/lng from the Google Maps URL
+    final parsed = _parseLatLngFromUrl(googleMapsLinkVal);
+    final latitudeVal = parsed?.$1 ?? 0.0;
+    final longitudeVal = parsed?.$2 ?? 0.0;
+
     if (ownerName.isEmpty ||
         kosName.isEmpty ||
         area.isEmpty ||
@@ -469,6 +588,13 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
         availableRooms == null ||
         !hasKosPhoto) {
       _showMessage('Semua data wajib diisi dengan benar.');
+      return;
+    }
+
+    if (googleMapsLinkVal.isEmpty ||
+        (!googleMapsLinkVal.startsWith('http://') &&
+            !googleMapsLinkVal.startsWith('https://'))) {
+      _showMessage('Link Google Maps tidak valid. Salin dari tombol Share di Google Maps.');
       return;
     }
 
@@ -490,25 +616,6 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
     setState(() => _saving = true);
     try {
       final user = SupabaseAuth.instance.currentUser!;
-      if (_selectedKosPhotoBytes != null && _selectedKosPhotoName != null) {
-        photoUrl = await SupabaseService.instance.uploadOwnerImage(
-          user: user,
-          bytes: _selectedKosPhotoBytes!,
-          fileName: _selectedKosPhotoName!,
-          folder: 'kos-images',
-        );
-        _photoController.text = photoUrl;
-      }
-      if (_selectedPaymentProofBytes != null &&
-          _selectedPaymentProofName != null) {
-        paymentProofUrl = await SupabaseService.instance.uploadOwnerImage(
-          user: user,
-          bytes: _selectedPaymentProofBytes!,
-          fileName: _selectedPaymentProofName!,
-          folder: 'payment-proofs',
-        );
-        _paymentProofController.text = paymentProofUrl;
-      }
       if (widget.existingKos == null) {
         await SupabaseService.instance.registerOwnerKos(
           user: user,
@@ -520,7 +627,9 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
           monthlyPrice: monthlyPrice,
           availableRooms: availableRooms,
           category: _selectedCategory,
-          approvalMode: _selectedApprovalMode,
+          latitude: latitudeVal,
+          longitude: longitudeVal,
+          googleMapsLink: googleMapsLinkVal,
           facilities: facilities,
           photoUrl: photoUrl,
           phoneNumber: phoneNumber,
@@ -542,7 +651,9 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
           monthlyPrice: monthlyPrice,
           availableRooms: availableRooms,
           category: _selectedCategory,
-          approvalMode: _selectedApprovalMode,
+          latitude: latitudeVal,
+          longitude: longitudeVal,
+          googleMapsLink: googleMapsLinkVal,
           facilities: facilities,
           photoUrl: photoUrl,
           phoneNumber: phoneNumber,
@@ -582,6 +693,46 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
   }
+
+  /// Ekstrak (latitude, longitude) dari berbagai format URL Google Maps.
+  /// Mendukung: maps.google.com/?q=, /maps/search/?q=, /@lat,lng,zoom,
+  /// goo.gl/maps, maps.app.goo.gl, dan format share pendek lainnya.
+  (double, double)? _parseLatLngFromUrl(String url) {
+    if (url.isEmpty) return null;
+    // Pattern 1: ?q=lat,lng atau &q=lat,lng
+    final qPattern = RegExp(r'[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)');
+    var match = qPattern.firstMatch(url);
+    if (match != null) {
+      final lat = double.tryParse(match.group(1)!);
+      final lng = double.tryParse(match.group(2)!);
+      if (lat != null && lng != null) return (lat, lng);
+    }
+    // Pattern 2: /@lat,lng,zoom (Google Maps standard URL)
+    final atPattern = RegExp(r'/@(-?\d+\.\d+),(-?\d+\.\d+)');
+    match = atPattern.firstMatch(url);
+    if (match != null) {
+      final lat = double.tryParse(match.group(1)!);
+      final lng = double.tryParse(match.group(2)!);
+      if (lat != null && lng != null) return (lat, lng);
+    }
+    // Pattern 3: !3d lat !4d lng (embedded Google Maps)
+    final embPattern = RegExp(r'!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)');
+    match = embPattern.firstMatch(url);
+    if (match != null) {
+      final lat = double.tryParse(match.group(1)!);
+      final lng = double.tryParse(match.group(2)!);
+      if (lat != null && lng != null) return (lat, lng);
+    }
+    // Pattern 4: ll=lat,lng
+    final llPattern = RegExp(r'll=(-?\d+\.\d+),(-?\d+\.\d+)');
+    match = llPattern.firstMatch(url);
+    if (match != null) {
+      final lat = double.tryParse(match.group(1)!);
+      final lng = double.tryParse(match.group(2)!);
+      if (lat != null && lng != null) return (lat, lng);
+    }
+    return null;
+  }
 }
 
 class _UploadImageCard extends StatelessWidget {
@@ -592,6 +743,7 @@ class _UploadImageCard extends StatelessWidget {
     required this.imageBytes,
     required this.fileName,
     required this.onPick,
+    this.isLoading = false,
   });
 
   final String label;
@@ -600,6 +752,7 @@ class _UploadImageCard extends StatelessWidget {
   final Uint8List? imageBytes;
   final String? fileName;
   final Future<void> Function() onPick;
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
@@ -622,7 +775,7 @@ class _UploadImageCard extends StatelessWidget {
           color: Colors.white,
           borderRadius: BorderRadius.circular(18),
           child: InkWell(
-            onTap: () async => onPick(),
+            onTap: isLoading ? null : () async => onPick(),
             borderRadius: BorderRadius.circular(18),
             child: Container(
               width: double.infinity,
@@ -631,76 +784,105 @@ class _UploadImageCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(18),
                 border: Border.all(color: const Color(0xFFE4ECEC)),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Stack(
                 children: [
-                  if (hasPreview)
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(14),
-                      child: SizedBox(
-                        width: double.infinity,
-                        height: 180,
-                        child: imageBytes != null
-                            ? Image.memory(imageBytes!, fit: BoxFit.cover)
-                            : Image.network(imageUrl, fit: BoxFit.cover),
-                      ),
-                    )
-                  else
-                    Container(
-                      width: double.infinity,
-                      height: 160,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF7FBFB),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: const Color(0xFFDDE9E9)),
-                      ),
-                      child: const Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.add_photo_alternate_outlined,
-                            size: 36,
-                            color: Color(0xFF7E9090),
-                          ),
-                          SizedBox(height: 10),
-                          Text(
-                            'Belum ada gambar dipilih',
-                            style: TextStyle(
-                              color: Color(0xFF7E9090),
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  const SizedBox(height: 12),
-                  Text(
-                    fileName?.trim().isNotEmpty == true
-                        ? 'File dipilih: $fileName'
-                        : hint,
-                    style: const TextStyle(
-                      color: Color(0xFF5D6B6B),
-                      height: 1.45,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: () async => onPick(),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        side: const BorderSide(color: Color(0xFFB8D7D7)),
-                        shape: RoundedRectangleBorder(
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (hasPreview)
+                        ClipRRect(
                           borderRadius: BorderRadius.circular(14),
+                          child: SizedBox(
+                            width: double.infinity,
+                            height: 180,
+                            child: imageBytes != null
+                                ? Image.memory(imageBytes!, fit: BoxFit.cover)
+                                : Image.network(imageUrl, fit: BoxFit.cover),
+                          ),
+                        )
+                      else
+                        Container(
+                          width: double.infinity,
+                          height: 160,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF7FBFB),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: const Color(0xFFDDE9E9)),
+                          ),
+                          child: const Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.add_photo_alternate_outlined,
+                                size: 36,
+                                color: Color(0xFF7E9090),
+                              ),
+                              SizedBox(height: 10),
+                              Text(
+                                'Belum ada gambar dipilih',
+                                style: TextStyle(
+                                  color: Color(0xFF7E9090),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      const SizedBox(height: 12),
+                      Text(
+                        fileName?.trim().isNotEmpty == true
+                            ? 'File dipilih: $fileName'
+                            : hint,
+                        style: const TextStyle(
+                          color: Color(0xFF5D6B6B),
+                          height: 1.45,
                         ),
                       ),
-                      icon: const Icon(Icons.upload_rounded),
-                      label: Text(
-                        hasPreview ? 'Ganti Gambar' : 'Upload Gambar',
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: isLoading ? null : () async => onPick(),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            side: const BorderSide(color: Color(0xFFB8D7D7)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                          icon: const Icon(Icons.upload_rounded),
+                          label: Text(
+                            hasPreview ? 'Ganti Gambar' : 'Upload Gambar',
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (isLoading)
+                    Positioned.fill(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.85),
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        child: const Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            CircularProgressIndicator(
+                              color: Color(0xFF006A6A),
+                            ),
+                            SizedBox(height: 12),
+                            Text(
+                              'Mengunggah gambar...',
+                              style: TextStyle(
+                                color: Color(0xFF006A6A),
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
                 ],
               ),
             ),

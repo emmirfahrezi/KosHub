@@ -520,7 +520,6 @@ extension _DemoKosOwner on Map<String, dynamic> {
       'owner_name': ownerName,
       'owner_status': 'Online',
       'owner_photo': ownerPhoto,
-      'approval_mode': this['approval_mode'] ?? 'Manual Approval',
       'total_rooms': this['total_rooms'] ?? this['available_rooms'] ?? 0,
       'updated_at': DatabaseValue.serverTimestamp(),
     };

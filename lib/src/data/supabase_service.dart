@@ -8,6 +8,8 @@ class SupabaseService {
 
   supabase.SupabaseClient get _client => supabase.Supabase.instance.client;
 
+  Map<String, dynamic>? _cachedProfileMap;
+
   Future<String> uploadPublicImage({
     required User user,
     required Uint8List bytes,
@@ -125,6 +127,7 @@ class SupabaseService {
     User user, {
     required String fallbackName,
   }) async {
+    _cachedProfileMap = null;
     final existingData = await _profileMap(user.id);
     await _client.from('profiles').upsert({
       'id': user.id,
@@ -195,6 +198,7 @@ class SupabaseService {
     required String photoUrl,
     String? newPassword,
   }) async {
+    _cachedProfileMap = null;
     await user.updateProfile(displayName: name, photoUrl: photoUrl);
     if (newPassword != null && newPassword.trim().isNotEmpty) {
       await user.updatePassword(newPassword.trim());
@@ -215,6 +219,7 @@ class SupabaseService {
     required User user,
     required String bankAccount,
   }) async {
+    _cachedProfileMap = null;
     final value = bankAccount.trim();
     try {
       await _client
@@ -267,7 +272,9 @@ class SupabaseService {
     required int monthlyPrice,
     required int availableRooms,
     required String category,
-    required String approvalMode,
+    required double latitude,
+    required double longitude,
+    required String googleMapsLink,
     required List<String> facilities,
     required String photoUrl,
     required String phoneNumber,
@@ -277,6 +284,7 @@ class SupabaseService {
     required String paymentProofUrl,
     required String voucherCode,
   }) async {
+    _cachedProfileMap = null;
     await user.updateDisplayName(ownerName);
     final existingVoucher = await _findOwnerVoucherByCode(voucherCode);
     final voucherDiscount = existingVoucher?.discountAmount ?? 0;
@@ -326,7 +334,9 @@ class SupabaseService {
       'harga_mulai': monthlyPrice,
       'fasilitas': facilities,
       'gender': category,
-      'approval_mode': approvalMode,
+      'latitude': latitude,
+      'longitude': longitude,
+      'google_maps_link': googleMapsLink,
       'foto_urls': [photoUrl],
       'rating': 0,
       'total_review': 0,
@@ -347,7 +357,9 @@ class SupabaseService {
     required int monthlyPrice,
     required int availableRooms,
     required String category,
-    required String approvalMode,
+    required double latitude,
+    required double longitude,
+    required String googleMapsLink,
     required List<String> facilities,
     required String photoUrl,
     required String phoneNumber,
@@ -357,6 +369,7 @@ class SupabaseService {
     required String paymentProofUrl,
     required String voucherCode,
   }) async {
+    _cachedProfileMap = null;
     await user.updateDisplayName(ownerName);
     final userData = await _profileMap(user.id) ?? const <String, dynamic>{};
     final voucher = await _findOwnerVoucherByCode(voucherCode);
@@ -421,7 +434,9 @@ class SupabaseService {
           'harga_mulai': monthlyPrice,
           'fasilitas': facilities,
           'gender': category,
-          'approval_mode': approvalMode,
+          'latitude': latitude,
+          'longitude': longitude,
+          'google_maps_link': googleMapsLink,
           'foto_urls': [photoUrl],
           'total_rooms': availableRooms,
           'available_rooms': availableRooms,
@@ -584,39 +599,29 @@ class SupabaseService {
     return row['id'].toString();
   }
 
-  Stream<List<ChatPreviewData>> userChatsStream(String userId) {
-    return _client
+  Stream<List<ChatPreviewData>> userChatsStream(String userId) async* {
+    final profile = await fetchUserProfile(userId);
+    final isOwner = profile?.role == 'pemilik';
+    final stream = _client
         .from('chats')
         .stream(primaryKey: ['id'])
-        .map((rows) async {
-          final items = await Future.wait(
-            rows
-                .where(
-                  (row) =>
-                      (row['participant_ids'] as List<dynamic>? ?? const [])
-                          .map((item) => item.toString())
-                          .contains(userId),
-                )
-                .map((row) async {
-                  final kos = await _resolveKosData(
-                    kosId: row['kos_id'] as String? ?? '',
-                    fallbackMap: _asStringMap(row['kos_snapshot']),
-                  );
-                  if (kos == null) {
-                    return null;
-                  }
-                  return ChatPreviewData.fromMap(
-                    id: row['id'].toString(),
-                    data: row,
-                    kos: kos,
-                  );
-                }),
-          );
-          final resolved = items.whereType<ChatPreviewData>().toList();
-          resolved.sort((a, b) => b.sortKey.compareTo(a.sortKey));
-          return resolved;
-        })
-        .asyncMap((value) => value);
+        .eq(isOwner ? 'owner_id' : 'penyewa_id', userId);
+
+    yield* stream.map((rows) {
+      final items = rows.map((row) {
+        final kos = KosData.fromMap(
+          row['kos_id'] as String? ?? '',
+          _asStringMap(row['kos_snapshot']) ?? const {},
+        );
+        return ChatPreviewData.fromMap(
+          id: row['id'].toString(),
+          data: row,
+          kos: kos,
+        );
+      }).toList();
+      items.sort((a, b) => b.sortKey.compareTo(a.sortKey));
+      return items;
+    });
   }
 
   Stream<ChatPreviewData?> chatPreviewStream({
@@ -1066,12 +1071,7 @@ class SupabaseService {
         'p_total_price': _totalPrice(kos.price, durationLabel),
       },
     );
-    if (kos.approvalMode == 'Auto Approval' && paymentProofUrl.isNotEmpty) {
-      await _client
-          .from('bookings')
-          .update({'status': 'Sudah Dikonfirmasi'})
-          .eq('id', bookingId.toString());
-    }
+    // Auto approval check has been removed per manual-only approval update.
   }
 
   Future<String> createOrGetOwnerChat(BookingData booking) async {
@@ -1299,7 +1299,15 @@ class SupabaseService {
   }
 
   Future<Map<String, dynamic>?> _profileMap(String userId) async {
-    return _client.from('profiles').select().eq('id', userId).maybeSingle();
+    final currentUser = SupabaseAuth.instance.currentUser;
+    if (currentUser != null && userId == currentUser.id && _cachedProfileMap != null) {
+      return _cachedProfileMap;
+    }
+    final map = await _client.from('profiles').select().eq('id', userId).maybeSingle();
+    if (currentUser != null && userId == currentUser.id) {
+      _cachedProfileMap = map;
+    }
+    return map;
   }
 
   String _sqlDate(DateTime value) {

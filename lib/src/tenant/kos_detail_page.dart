@@ -47,11 +47,6 @@ class KosDetailPage extends StatelessWidget {
                         color: const Color(0xFFB78103),
                         background: const Color(0xFFFFF5DD),
                       ),
-                      _StatusPill(
-                        label: kos.approvalMode,
-                        color: const Color(0xFF35589F),
-                        background: const Color(0xFFEAF1FF),
-                      ),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -171,29 +166,126 @@ class KosDetailPage extends StatelessWidget {
                   _InfoBlock(
                     title: 'Lokasi',
                     child: Container(
-                      height: 150,
+                      width: double.infinity,
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(22),
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFDDF5EF), Color(0xFFF8F8FB)],
-                        ),
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: const Color(0xFFE2E7E7)),
                       ),
-                      child: const Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.map_rounded,
-                              size: 42,
-                              color: Color(0xFF006A6A),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            height: 140,
+                            width: double.infinity,
+                            decoration: const BoxDecoration(
+                              borderRadius: BorderRadius.vertical(
+                                top: Radius.circular(23),
+                              ),
+                              gradient: LinearGradient(
+                                colors: [Color(0xFFE8F6F6), Color(0xFFDDF5EF)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
                             ),
-                            SizedBox(height: 10),
-                            Text(
-                              'Lokasi kos akan ditampilkan di sini',
-                              style: TextStyle(fontWeight: FontWeight.w700),
+                            child: const Center(
+                              child: Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.map_rounded,
+                                    size: 80,
+                                    color: Color(0x33006A6A),
+                                  ),
+                                  Icon(
+                                    Icons.location_on_rounded,
+                                    size: 40,
+                                    color: Color(0xFF9F4035),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ],
-                        ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  kos.address,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14,
+                                    color: Color(0xFF182022),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.explore_outlined,
+                                      size: 16,
+                                      color: Color(0xFF5D6B6B),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      (kos.latitude != 0.0 || kos.longitude != 0.0)
+                                          ? '${kos.latitude.toStringAsFixed(6)}, ${kos.longitude.toStringAsFixed(6)}'
+                                          : 'Koordinat belum diisi pemilik',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Color(0xFF5D6B6B),
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 14),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: FilledButton.icon(
+                                    onPressed: () async {
+                                      final mapsLink = kos.googleMapsLink.trim();
+                                      final lat = kos.latitude;
+                                      final lng = kos.longitude;
+                                      final Uri url;
+                                      if (mapsLink.isNotEmpty && (mapsLink.startsWith('http://') || mapsLink.startsWith('https://'))) {
+                                        url = Uri.parse(mapsLink);
+                                      } else if (lat != 0.0 || lng != 0.0) {
+                                        url = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
+                                      } else {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(content: Text('Lokasi kos belum tersedia.')),
+                                        );
+                                        return;
+                                      }
+                                      try {
+                                        await launchUrl(url, mode: LaunchMode.externalApplication);
+                                      } catch (_) {
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            const SnackBar(
+                                              content: Text('Tidak dapat membuka link Google Maps.'),
+                                            ),
+                                          );
+                                        }
+                                      }
+                                    },
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor: const Color(0xFF006A6A),
+                                      padding: const EdgeInsets.symmetric(vertical: 14),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                    ),
+                                    icon: const Icon(Icons.map_rounded),
+                                    label: const Text('Buka di Google Maps'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),

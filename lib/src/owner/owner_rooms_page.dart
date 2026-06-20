@@ -161,7 +161,6 @@ class OwnerRoomsPage extends StatelessWidget {
                           spacing: 8,
                           runSpacing: 8,
                           children: [
-                            _SmallPill(label: 'Mode ${kos.approvalMode}'),
                             _SmallPill(label: '$availableCount tersedia'),
                             _SmallPill(label: '$bookedCount dibooking'),
                             _SmallPill(label: '$occupiedCount terisi'),

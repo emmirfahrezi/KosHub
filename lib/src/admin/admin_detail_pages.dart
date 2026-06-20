@@ -386,7 +386,7 @@ class _AdminListingDetailPageState extends State<AdminListingDetailPage> {
                   value: '${kos.availableRooms}',
                 ),
                 const SizedBox(height: 10),
-                _DetailRow(label: 'Approval booking', value: kos.approvalMode),
+                _DetailRow(label: 'Approval booking', value: 'Manual Approval'),
               ],
             ),
           ),
