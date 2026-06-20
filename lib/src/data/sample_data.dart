@@ -1,4 +1,156 @@
-part of '../../main.dart';
+﻿part of '../../main.dart';
+class DemoTenantAccount {
+  const DemoTenantAccount({
+    required this.name,
+    required this.email,
+    required this.password,
+    required this.phoneNumber,
+    required this.ktpNumber,
+    required this.emergencyContact,
+    required this.bankAccount,
+    required this.photoUrl,
+    required this.accountStatus,
+    required this.verificationStatus,
+    required this.loginActivity,
+    required this.notes,
+  });
+
+  final String name;
+  final String email;
+  final String password;
+  final String phoneNumber;
+  final String ktpNumber;
+  final String emergencyContact;
+  final String bankAccount;
+  final String photoUrl;
+  final String accountStatus;
+  final String verificationStatus;
+  final String loginActivity;
+  final String notes;
+}
+
+const List<DemoTenantAccount> _demoTenantAccounts = [
+  DemoTenantAccount(
+    name: 'Alya Putri Maheswari',
+    email: 'demo.penyewa1@koshub.app',
+    password: 'DemoKosHub#2026',
+    phoneNumber: '081290001001',
+    ktpNumber: '3174011201990001',
+    emergencyContact: 'Ibu Santi - 081290009001',
+    bankAccount: 'BCA 7012345601 a.n. Alya Putri Maheswari',
+    photoUrl:
+        'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=400&q=80',
+    accountStatus: 'Aktif',
+    verificationStatus: 'Terverifikasi',
+    loginActivity: 'Demo login 20 Juni 2026',
+    notes: 'Mahasiswi tingkat akhir, suka kos dekat kampus dan akses TransJakarta.',
+  ),
+  DemoTenantAccount(
+    name: 'Rizky Ananda Pratama',
+    email: 'demo.penyewa2@koshub.app',
+    password: 'DemoKosHub#2026',
+    phoneNumber: '081290001002',
+    ktpNumber: '3174021502980002',
+    emergencyContact: 'Ayah Budi - 081290009002',
+    bankAccount: 'Mandiri 1320019988221 a.n. Rizky Ananda Pratama',
+    photoUrl:
+        'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=400&q=80',
+    accountStatus: 'Aktif',
+    verificationStatus: 'Terverifikasi',
+    loginActivity: 'Demo login 20 Juni 2026',
+    notes: 'Karyawan hybrid di area Sudirman, prefer kamar dengan WiFi cepat dan laundry.',
+  ),
+  DemoTenantAccount(
+    name: 'Nabila Salsabila Rahma',
+    email: 'demo.penyewa3@koshub.app',
+    password: 'DemoKosHub#2026',
+    phoneNumber: '081290001003',
+    ktpNumber: '3174032303990003',
+    emergencyContact: 'Kak Rani - 081290009003',
+    bankAccount: 'BNI 0987654321 a.n. Nabila Salsabila Rahma',
+    photoUrl:
+        'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=400&q=80',
+    accountStatus: 'Aktif',
+    verificationStatus: 'Terverifikasi',
+    loginActivity: 'Demo login 20 Juni 2026',
+    notes: 'Freelancer desain, mencari kos estetik dengan ruang komunal nyaman.',
+  ),
+  DemoTenantAccount(
+    name: 'Dimas Saputra Nugraha',
+    email: 'demo.penyewa4@koshub.app',
+    password: 'DemoKosHub#2026',
+    phoneNumber: '081290001004',
+    ktpNumber: '3174041104970004',
+    emergencyContact: 'Istri Fina - 081290009004',
+    bankAccount: 'BRI 6601888999 a.n. Dimas Saputra Nugraha',
+    photoUrl:
+        'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=400&q=80',
+    accountStatus: 'Aktif',
+    verificationStatus: 'Terverifikasi',
+    loginActivity: 'Demo login 20 Juni 2026',
+    notes: 'Staff sales lapangan, butuh parkir motor aman dan akses jalan utama.',
+  ),
+  DemoTenantAccount(
+    name: 'Citra Lestari Handayani',
+    email: 'demo.penyewa5@koshub.app',
+    password: 'DemoKosHub#2026',
+    phoneNumber: '081290001005',
+    ktpNumber: '3174050101000005',
+    emergencyContact: 'Suami Yoga - 081290009005',
+    bankAccount: 'CIMB Niaga 800123456700 a.n. Citra Lestari Handayani',
+    photoUrl:
+        'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=400&q=80',
+    accountStatus: 'Aktif',
+    verificationStatus: 'Terverifikasi',
+    loginActivity: 'Demo login 20 Juni 2026',
+    notes: 'Admin klinik, suka kos putri yang tenang dengan kamar mandi dalam.',
+  ),
+  DemoTenantAccount(
+    name: 'Fajar Maulana Hidayat',
+    email: 'demo.penyewa6@koshub.app',
+    password: 'DemoKosHub#2026',
+    phoneNumber: '081290001006',
+    ktpNumber: '3174060909950006',
+    emergencyContact: 'Ibu Rina - 081290009006',
+    bankAccount: 'Permata 899001223344 a.n. Fajar Maulana Hidayat',
+    photoUrl:
+        'https://images.unsplash.com/photo-1504593811423-6dd665756598?auto=format&fit=crop&w=400&q=80',
+    accountStatus: 'Aktif',
+    verificationStatus: 'Terverifikasi',
+    loginActivity: 'Demo login 20 Juni 2026',
+    notes: 'Programmer remote, prioritas AC dingin, meja kerja, dan internet stabil.',
+  ),
+  DemoTenantAccount(
+    name: 'Intan Permata Sari',
+    email: 'demo.penyewa7@koshub.app',
+    password: 'DemoKosHub#2026',
+    phoneNumber: '081290001007',
+    ktpNumber: '3174071707010007',
+    emergencyContact: 'Ayah Herman - 081290009007',
+    bankAccount: 'BSI 7112233445 a.n. Intan Permata Sari',
+    photoUrl:
+        'https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?auto=format&fit=crop&w=400&q=80',
+    accountStatus: 'Aktif',
+    verificationStatus: 'Terverifikasi',
+    loginActivity: 'Demo login 20 Juni 2026',
+    notes: 'Mahasiswi S2, mencari kos syariah dekat perpustakaan dan tempat makan.',
+  ),
+  DemoTenantAccount(
+    name: 'Yusuf Kurniawan Aditya',
+    email: 'demo.penyewa8@koshub.app',
+    password: 'DemoKosHub#2026',
+    phoneNumber: '081290001008',
+    ktpNumber: '3174082108940008',
+    emergencyContact: 'Kak Aldi - 081290009008',
+    bankAccount: 'Danamon 001778899221 a.n. Yusuf Kurniawan Aditya',
+    photoUrl:
+        'https://images.unsplash.com/photo-1504257432389-52343af06ae3?auto=format&fit=crop&w=400&q=80',
+    accountStatus: 'Aktif',
+    verificationStatus: 'Terverifikasi',
+    loginActivity: 'Demo login 20 Juni 2026',
+    notes: 'Supervisor retail, cocok untuk demo booking, chat, dan histori transaksi.',
+  ),
+];
 
 const Map<String, dynamic> _sampleKosMap1 = {
   'owner_id': 'demo-owner-rina',
@@ -47,3 +199,4 @@ const Map<String, dynamic> _sampleKosMap2 = {
   'available_rooms': 2,
   'status': 'active',
 };
+
