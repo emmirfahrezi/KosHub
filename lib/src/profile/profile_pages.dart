@@ -522,11 +522,20 @@ class _TenantProfileEditPageState extends State<TenantProfileEditPage> {
 
     final name = _nameController.text.trim();
     final phone = _phoneController.text.trim();
+    final normalizedPhone = _normalizeIndonesianMobileNumber(phone);
     if (name.isEmpty || phone.isEmpty) {
       _showLightDialog(
         context,
         title: 'Data belum lengkap',
         message: 'Nama dan nomor HP wajib diisi.',
+      );
+      return;
+    }
+    if (normalizedPhone == null) {
+      _showLightDialog(
+        context,
+        title: 'Nomor HP tidak valid',
+        message: _indonesianMobileNumberHint('Nomor HP'),
       );
       return;
     }
@@ -546,7 +555,7 @@ class _TenantProfileEditPageState extends State<TenantProfileEditPage> {
       await SupabaseService.instance.updateTenantProfile(
         user: user,
         name: name,
-        phoneNumber: phone,
+        phoneNumber: normalizedPhone,
         photoUrl: photoUrl,
       );
       if (!mounted) {

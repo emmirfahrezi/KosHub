@@ -244,36 +244,15 @@ class KosDetailPage extends StatelessWidget {
                                 SizedBox(
                                   width: double.infinity,
                                   child: FilledButton.icon(
-                                    onPressed: () async {
-                                      final mapsLink = kos.googleMapsLink.trim();
-                                      final lat = kos.latitude;
-                                      final lng = kos.longitude;
-                                      final Uri url;
-                                      if (mapsLink.isNotEmpty && (mapsLink.startsWith('http://') || mapsLink.startsWith('https://'))) {
-                                        url = Uri.parse(mapsLink);
-                                      } else if (lat != 0.0 || lng != 0.0) {
-                                        url = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
-                                      } else {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(content: Text('Lokasi kos belum tersedia.')),
-                                        );
-                                        return;
-                                      }
-                                      try {
-                                        await launchUrl(url, mode: LaunchMode.externalApplication);
-                                      } catch (_) {
-                                        if (context.mounted) {
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            const SnackBar(
-                                              content: Text('Tidak dapat membuka link Google Maps.'),
-                                            ),
-                                          );
-                                        }
-                                      }
-                                    },
+                                    onPressed: () => _openKosMaps(
+                                      context,
+                                      kos: kos,
+                                    ),
                                     style: FilledButton.styleFrom(
                                       backgroundColor: const Color(0xFF006A6A),
-                                      padding: const EdgeInsets.symmetric(vertical: 14),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 14,
+                                      ),
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(16),
                                       ),

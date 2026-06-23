@@ -130,44 +130,32 @@ class _BookingFormPageState extends State<BookingFormPage> {
                 const SizedBox(height: 10),
                 Text(
                   widget.kos.address,
-                  style: const TextStyle(color: Color(0xFF5D6B6B), fontSize: 13, height: 1.4),
+                  style: const TextStyle(
+                    color: Color(0xFF5D6B6B),
+                    fontSize: 13,
+                    height: 1.4,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
-                    onPressed: () async {
-                        final mapsLink = widget.kos.googleMapsLink.trim();
-                        final lat = widget.kos.latitude;
-                        final lng = widget.kos.longitude;
-                        final Uri url;
-                        if (mapsLink.isNotEmpty && (mapsLink.startsWith('http://') || mapsLink.startsWith('https://'))) {
-                          url = Uri.parse(mapsLink);
-                        } else if (lat != 0.0 || lng != 0.0) {
-                          url = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Lokasi kos belum tersedia.')),
-                          );
-                          return;
-                        }
-                        try {
-                          await launchUrl(url, mode: LaunchMode.externalApplication);
-                        } catch (_) {
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Tidak dapat membuka Google Maps.')),
-                            );
-                          }
-                        }
-                      },
+                    onPressed: () => _openKosMaps(
+                      context,
+                      kos: widget.kos,
+                    ),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 10),
                       side: const BorderSide(color: Color(0xFFB8D7D7)),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                     icon: const Icon(Icons.explore_outlined, size: 16),
-                    label: const Text('Buka Google Maps', style: TextStyle(fontSize: 13)),
+                    label: const Text(
+                      'Buka Google Maps',
+                      style: TextStyle(fontSize: 13),
+                    ),
                   ),
                 ),
               ],
@@ -411,6 +399,7 @@ class _BookingFormPageState extends State<BookingFormPage> {
 
   Future<void> _createBooking() async {
     final phone = _phoneController.text.trim();
+    final normalizedPhone = _normalizeIndonesianMobileNumber(phone);
     var proof = _proofController.text.trim();
     final hasProof = _selectedProofBytes != null || proof.isNotEmpty;
     final transferInfo = await _ensureTransferInfoFuture();
@@ -449,6 +438,14 @@ class _BookingFormPageState extends State<BookingFormPage> {
       );
       return;
     }
+    if (normalizedPhone == null) {
+      _showLightDialog(
+        context,
+        title: 'Nomor HP tidak valid',
+        message: _indonesianMobileNumberHint('Nomor HP'),
+      );
+      return;
+    }
 
     setState(() => _saving = true);
     try {
@@ -468,7 +465,7 @@ class _BookingFormPageState extends State<BookingFormPage> {
         paymentMethod: _selectedPayment,
         startDate: _selectedStartDate,
         startDateLabel: _startDateController.text.trim(),
-        phoneNumber: phone,
+        phoneNumber: normalizedPhone,
         roomLabel: '',
         note: _noteController.text.trim(),
         paymentProofUrl: proof,
@@ -853,31 +850,10 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
                     ),
                     const Spacer(),
                     TextButton.icon(
-                      onPressed: () async {
-                        final mapsLink = booking.kos.googleMapsLink.trim();
-                        final lat = booking.kos.latitude;
-                        final lng = booking.kos.longitude;
-                        final Uri url;
-                        if (mapsLink.isNotEmpty && (mapsLink.startsWith('http://') || mapsLink.startsWith('https://'))) {
-                          url = Uri.parse(mapsLink);
-                        } else if (lat != 0.0 || lng != 0.0) {
-                          url = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Lokasi kos belum tersedia.')),
-                          );
-                          return;
-                        }
-                        try {
-                          await launchUrl(url, mode: LaunchMode.externalApplication);
-                        } catch (_) {
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Tidak dapat membuka Google Maps.')),
-                            );
-                          }
-                        }
-                      },
+                      onPressed: () => _openKosMaps(
+                        context,
+                        kos: booking.kos,
+                      ),
                       icon: const Icon(Icons.explore_outlined, size: 16),
                       label: const Text('Buka Maps', style: TextStyle(fontSize: 12)),
                       style: TextButton.styleFrom(

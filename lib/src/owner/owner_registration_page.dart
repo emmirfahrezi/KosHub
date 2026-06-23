@@ -226,7 +226,8 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
             _InputField(
               controller: _emergencyController,
               label: 'Kontak darurat',
-              hintText: 'Nama / nomor kontak darurat',
+              hintText: 'Contoh: Ibu Sari - 081234567890',
+              keyboardType: TextInputType.phone,
             ),
             const SizedBox(height: 16),
             _InputField(
@@ -348,8 +349,12 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'Koordinat latitude & longitude akan diekstrak otomatis dari link.',
-                  style: TextStyle(color: Color(0xFF7E9090), fontSize: 11, height: 1.4),
+                  'Link pendek maps.app.goo.gl tetap bisa dipakai. Koordinat hanya terbaca otomatis dari link Google Maps panjang.',
+                  style: TextStyle(
+                    color: Color(0xFF7E9090),
+                    fontSize: 11,
+                    height: 1.4,
+                  ),
                 ),
               ],
             ),
@@ -574,10 +579,12 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
         _selectedPaymentProofBytes != null || paymentProofUrl.trim().isNotEmpty;
 
     final googleMapsLinkVal = _googleMapsLinkController.text.trim();
-    // Auto-extract lat/lng from the Google Maps URL
     final parsed = _parseLatLngFromUrl(googleMapsLinkVal);
-    final latitudeVal = parsed?.$1 ?? 0.0;
-    final longitudeVal = parsed?.$2 ?? 0.0;
+    final latitudeVal = parsed?.$1 ?? widget.existingKos?.latitude ?? 0.0;
+    final longitudeVal = parsed?.$2 ?? widget.existingKos?.longitude ?? 0.0;
+    final normalizedPhoneNumber = _normalizeIndonesianMobileNumber(
+      phoneNumber,
+    );
 
     if (ownerName.isEmpty ||
         kosName.isEmpty ||
@@ -591,10 +598,15 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
       return;
     }
 
-    if (googleMapsLinkVal.isEmpty ||
-        (!googleMapsLinkVal.startsWith('http://') &&
-            !googleMapsLinkVal.startsWith('https://'))) {
-      _showMessage('Link Google Maps tidak valid. Salin dari tombol Share di Google Maps.');
+    if (phoneNumber.isNotEmpty && normalizedPhoneNumber == null) {
+      _showMessage(_indonesianMobileNumberHint('Nomor HP'));
+      return;
+    }
+
+    if (googleMapsLinkVal.isEmpty || !_isGoogleMapsUrl(googleMapsLinkVal)) {
+      _showMessage(
+        'Link lokasi harus dari Google Maps. Salin dari tombol Share di Google Maps.',
+      );
       return;
     }
 
@@ -610,6 +622,12 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
 
     if (facilities.isEmpty) {
       _showMessage('Isi minimal satu fasilitas kos.');
+      return;
+    }
+
+    if (emergencyContact.isNotEmpty &&
+        !_hasValidIndonesianMobileNumber(emergencyContact)) {
+      _showMessage(_indonesianMobileNumberHint('Kontak darurat'));
       return;
     }
 
@@ -632,7 +650,7 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
           googleMapsLink: googleMapsLinkVal,
           facilities: facilities,
           photoUrl: photoUrl,
-          phoneNumber: phoneNumber,
+          phoneNumber: normalizedPhoneNumber ?? phoneNumber,
           ktpNumber: ktpNumber,
           emergencyContact: emergencyContact,
           bankAccount: bankAccount,
@@ -656,7 +674,7 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
           googleMapsLink: googleMapsLinkVal,
           facilities: facilities,
           photoUrl: photoUrl,
-          phoneNumber: phoneNumber,
+          phoneNumber: normalizedPhoneNumber ?? phoneNumber,
           ktpNumber: ktpNumber,
           emergencyContact: emergencyContact,
           bankAccount: bankAccount,
@@ -679,8 +697,12 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
       Navigator.pop(context);
     } on SupabaseAppException catch (error) {
       _showMessage(_supabaseMessage(error));
-    } catch (_) {
-      _showMessage('Pendaftaran pemilik gagal diproses. Coba lagi.');
+    } catch (error) {
+      _showMessage(
+        widget.existingKos == null
+            ? 'Pendaftaran pemilik gagal diproses. ${_unknownSaveErrorMessage(error)}'
+            : 'Perubahan listing gagal disimpan. ${_unknownSaveErrorMessage(error)}',
+      );
     } finally {
       if (mounted) {
         setState(() => _saving = false);
@@ -692,46 +714,6 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
-  }
-
-  /// Ekstrak (latitude, longitude) dari berbagai format URL Google Maps.
-  /// Mendukung: maps.google.com/?q=, /maps/search/?q=, /@lat,lng,zoom,
-  /// goo.gl/maps, maps.app.goo.gl, dan format share pendek lainnya.
-  (double, double)? _parseLatLngFromUrl(String url) {
-    if (url.isEmpty) return null;
-    // Pattern 1: ?q=lat,lng atau &q=lat,lng
-    final qPattern = RegExp(r'[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)');
-    var match = qPattern.firstMatch(url);
-    if (match != null) {
-      final lat = double.tryParse(match.group(1)!);
-      final lng = double.tryParse(match.group(2)!);
-      if (lat != null && lng != null) return (lat, lng);
-    }
-    // Pattern 2: /@lat,lng,zoom (Google Maps standard URL)
-    final atPattern = RegExp(r'/@(-?\d+\.\d+),(-?\d+\.\d+)');
-    match = atPattern.firstMatch(url);
-    if (match != null) {
-      final lat = double.tryParse(match.group(1)!);
-      final lng = double.tryParse(match.group(2)!);
-      if (lat != null && lng != null) return (lat, lng);
-    }
-    // Pattern 3: !3d lat !4d lng (embedded Google Maps)
-    final embPattern = RegExp(r'!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)');
-    match = embPattern.firstMatch(url);
-    if (match != null) {
-      final lat = double.tryParse(match.group(1)!);
-      final lng = double.tryParse(match.group(2)!);
-      if (lat != null && lng != null) return (lat, lng);
-    }
-    // Pattern 4: ll=lat,lng
-    final llPattern = RegExp(r'll=(-?\d+\.\d+),(-?\d+\.\d+)');
-    match = llPattern.firstMatch(url);
-    if (match != null) {
-      final lat = double.tryParse(match.group(1)!);
-      final lng = double.tryParse(match.group(2)!);
-      if (lat != null && lng != null) return (lat, lng);
-    }
-    return null;
   }
 }
 

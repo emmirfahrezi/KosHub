@@ -36,6 +36,14 @@ String _streamErrorMessage(Object? error) {
   return 'Terjadi kendala saat mengambil data. Periksa koneksi lalu coba lagi.';
 }
 
+String _unknownSaveErrorMessage(Object error) {
+  final text = error.toString();
+  if (text.trim().isEmpty || text == 'Exception') {
+    return 'Coba lagi.';
+  }
+  return text;
+}
+
 String _normalizeUiText(String value) {
   return value
       .replaceAll('ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢', ' - ')
@@ -43,6 +51,205 @@ String _normalizeUiText(String value) {
       .replaceAll('Â·', ' - ')
       .replaceAll(RegExp(r'\s{2,}'), ' ')
       .trim();
+}
+
+String? _normalizeIndonesianMobileNumber(String value) {
+  final input = value.trim();
+  if (input.isEmpty) {
+    return null;
+  }
+  if (RegExp(r'[^0-9+\s().-]').hasMatch(input)) {
+    return null;
+  }
+
+  var digits = input.replaceAll(RegExp(r'[^0-9+]'), '');
+  if (digits.startsWith('+')) {
+    if (digits.indexOf('+', 1) != -1) {
+      return null;
+    }
+    digits = digits.substring(1);
+  } else if (digits.contains('+')) {
+    return null;
+  }
+
+  if (digits.startsWith('62')) {
+    digits = '0${digits.substring(2)}';
+  }
+
+  if (!digits.startsWith('08')) {
+    return null;
+  }
+  if (digits.length < 10 || digits.length > 13) {
+    return null;
+  }
+  if (!RegExp(r'^08\d+$').hasMatch(digits)) {
+    return null;
+  }
+  return digits;
+}
+
+bool _hasValidIndonesianMobileNumber(String value) {
+  final candidates = RegExp(r'(\+?62|0)8[\d\s().-]{7,15}')
+      .allMatches(value)
+      .map((match) => match.group(0) ?? '');
+  return candidates.any((candidate) {
+    return _normalizeIndonesianMobileNumber(candidate) != null;
+  });
+}
+
+String _indonesianMobileNumberHint(String label) {
+  return '$label harus nomor HP Indonesia valid. Gunakan format 08xxxxxxxxxx atau +628xxxxxxxxxx.';
+}
+
+bool _isGoogleMapsUrl(String value) {
+  final uri = Uri.tryParse(value.trim());
+  if (uri == null ||
+      (uri.scheme != 'http' && uri.scheme != 'https') ||
+      uri.host.trim().isEmpty) {
+    return false;
+  }
+
+  final host = uri.host.toLowerCase();
+  final path = uri.path.toLowerCase();
+
+  if (host == 'maps.app.goo.gl') {
+    return true;
+  }
+
+  if (host == 'goo.gl' && path.startsWith('/maps')) {
+    return true;
+  }
+
+  if (host.startsWith('maps.google.')) {
+    return true;
+  }
+
+  final isGoogleHost =
+      host == 'google.com' ||
+      host == 'www.google.com' ||
+      host.endsWith('.google.com') ||
+      RegExp(r'(^|\.)google\.[a-z.]+$').hasMatch(host);
+  return isGoogleHost && path.startsWith('/maps');
+}
+
+bool _hasValidCoordinate(double latitude, double longitude) {
+  return latitude >= -90 &&
+      latitude <= 90 &&
+      longitude >= -180 &&
+      longitude <= 180 &&
+      (latitude != 0.0 || longitude != 0.0);
+}
+
+Uri? _kosMapsUri({
+  required String mapsLink,
+  required double latitude,
+  required double longitude,
+  required String address,
+  required String name,
+}) {
+  final cleanMapsLink = mapsLink.trim();
+  if (_isGoogleMapsUrl(cleanMapsLink)) {
+    return Uri.parse(cleanMapsLink);
+  }
+
+  if (_hasValidCoordinate(latitude, longitude)) {
+    return Uri.https('www.google.com', '/maps/search/', {
+      'api': '1',
+      'query': '$latitude,$longitude',
+    });
+  }
+
+  final query = [name.trim(), address.trim()]
+      .where((item) => item.isNotEmpty && item != '-')
+      .join(', ');
+  if (query.isEmpty) {
+    return null;
+  }
+
+  return Uri.https('www.google.com', '/maps/search/', {
+    'api': '1',
+    'query': query,
+  });
+}
+
+Future<void> _openKosMaps(
+  BuildContext context, {
+  required KosData kos,
+}) async {
+  final url = _kosMapsUri(
+    mapsLink: kos.googleMapsLink,
+    latitude: kos.latitude,
+    longitude: kos.longitude,
+    address: kos.address,
+    name: kos.name,
+  );
+
+  if (url == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Lokasi kos belum tersedia.')),
+    );
+    return;
+  }
+
+  try {
+    final opened = await launchUrl(url, mode: LaunchMode.externalApplication);
+    if (opened) {
+      return;
+    }
+
+    final fallbackOpened = await launchUrl(
+      url,
+      mode: LaunchMode.platformDefault,
+    );
+    if (!fallbackOpened && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Tidak dapat membuka Google Maps.')),
+      );
+    }
+  } catch (_) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Tidak dapat membuka Google Maps.')),
+      );
+    }
+  }
+}
+
+(double, double)? _parseLatLngFromUrl(String url) {
+  if (url.trim().isEmpty) {
+    return null;
+  }
+
+  final decodedUrl = _safeDecodeUrl(url);
+  final number = r'(-?\d+(?:\.\d+)?)';
+  final patterns = [
+    RegExp('[?&](?:q|query|ll)=$number,$number'),
+    RegExp('/@$number,$number'),
+    RegExp('!3d$number!4d$number'),
+  ];
+
+  for (final pattern in patterns) {
+    final match = pattern.firstMatch(decodedUrl);
+    if (match == null) {
+      continue;
+    }
+
+    final lat = double.tryParse(match.group(1)!);
+    final lng = double.tryParse(match.group(2)!);
+    if (lat != null && lng != null && _hasValidCoordinate(lat, lng)) {
+      return (lat, lng);
+    }
+  }
+
+  return null;
+}
+
+String _safeDecodeUrl(String value) {
+  try {
+    return Uri.decodeFull(value);
+  } catch (_) {
+    return value;
+  }
 }
 
 Future<void> _confirmCancelBooking(

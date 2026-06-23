@@ -198,6 +198,17 @@ class SupabaseService {
     required String photoUrl,
     String? newPassword,
   }) async {
+    final normalizedPhoneNumber = _normalizeIndonesianMobileNumber(
+      phoneNumber,
+    );
+    if (normalizedPhoneNumber == null) {
+      throw SupabaseAppException(
+        plugin: 'validation',
+        code: 'invalid-phone-number',
+        message: _indonesianMobileNumberHint('Nomor HP'),
+      );
+    }
+
     _cachedProfileMap = null;
     await user.updateProfile(displayName: name, photoUrl: photoUrl);
     if (newPassword != null && newPassword.trim().isNotEmpty) {
@@ -209,7 +220,7 @@ class SupabaseService {
         .update({
           'name': name.trim(),
           'email': user.email ?? '-',
-          'phone_number': phoneNumber.trim(),
+          'phone_number': normalizedPhoneNumber,
           'photo_url': photoUrl.trim(),
         })
         .eq('id', user.id);
@@ -284,66 +295,100 @@ class SupabaseService {
     required String paymentProofUrl,
     required String voucherCode,
   }) async {
-    _cachedProfileMap = null;
-    await user.updateDisplayName(ownerName);
-    final existingVoucher = await _findOwnerVoucherByCode(voucherCode);
-    final voucherDiscount = existingVoucher?.discountAmount ?? 0;
-    final activationFee = _ownerActivationBaseFee;
+    final normalizedPhoneNumber = _normalizeIndonesianMobileNumber(
+      phoneNumber,
+    );
+    if (normalizedPhoneNumber == null) {
+      throw SupabaseAppException(
+        plugin: 'validation',
+        code: 'invalid-phone-number',
+        message: _indonesianMobileNumberHint('Nomor HP'),
+      );
+    }
+    if (!_hasValidIndonesianMobileNumber(emergencyContact)) {
+      throw SupabaseAppException(
+        plugin: 'validation',
+        code: 'invalid-emergency-contact',
+        message: _indonesianMobileNumberHint('Kontak darurat'),
+      );
+    }
 
-    await _client.from('profiles').upsert({
-      'id': user.id,
-      'name': ownerName,
-      'email': user.email ?? '-',
-      'role': 'penyewa',
-      'requested_role': 'pemilik',
-      'is_active': false,
-      'photo_url': user.photoURL ?? photoUrl,
-      'phone_number': phoneNumber,
-      'ktp_number': ktpNumber,
-      'emergency_contact': emergencyContact,
-      'bank_account': bankAccount,
-      'account_status': 'Menunggu Aktivasi',
-      'verification_status': paymentProofUrl.isEmpty
-          ? 'Menunggu Pembayaran'
-          : 'Menunggu Verifikasi',
-      'activation_payment_method': 'Transfer Manual',
-      'activation_payment_status': paymentProofUrl.isEmpty
-          ? 'Belum Bayar'
-          : 'Menunggu Konfirmasi',
-      'activation_payment_proof_url': paymentProofUrl,
-      'owner_activation_fee': activationFee,
-      'owner_activation_discount': voucherDiscount,
-      'owner_voucher_code': existingVoucher?.code ?? '',
-      'owner_application_submitted_at': DateTime.now()
-          .toUtc()
-          .toIso8601String(),
-      'admin_notes': '',
-      'owner_status': 'Menunggu aktivasi admin',
-    });
+    try {
+      _cachedProfileMap = null;
+      await user.updateDisplayName(ownerName);
+      final existingVoucher = await _findOwnerVoucherByCode(voucherCode);
+      final voucherDiscount = existingVoucher?.discountAmount ?? 0;
+      final activationFee = _ownerActivationBaseFee;
 
-    await _client.from('kos').insert({
-      'owner_id': user.id,
-      'owner_name': ownerName,
-      'owner_status': 'Menunggu aktivasi admin',
-      'owner_photo': user.photoURL ?? photoUrl,
-      'bank_account': bankAccount,
-      'nama_kos': kosName,
-      'area': area,
-      'alamat': address,
-      'deskripsi': description,
-      'harga_mulai': monthlyPrice,
-      'fasilitas': facilities,
-      'gender': category,
-      'latitude': latitude,
-      'longitude': longitude,
-      'google_maps_link': googleMapsLink,
-      'foto_urls': [photoUrl],
-      'rating': 0,
-      'total_review': 0,
-      'total_rooms': availableRooms,
-      'available_rooms': availableRooms,
-      'status': 'pending_review',
-    });
+      await _client.from('profiles').upsert({
+        'id': user.id,
+        'name': ownerName,
+        'email': user.email ?? '-',
+        'role': 'penyewa',
+        'requested_role': 'pemilik',
+        'is_active': false,
+        'photo_url': user.photoURL ?? photoUrl,
+        'phone_number': normalizedPhoneNumber,
+        'ktp_number': ktpNumber,
+        'emergency_contact': emergencyContact,
+        'bank_account': bankAccount,
+        'account_status': 'Menunggu Aktivasi',
+        'verification_status': paymentProofUrl.isEmpty
+            ? 'Menunggu Pembayaran'
+            : 'Menunggu Verifikasi',
+        'activation_payment_method': 'Transfer Manual',
+        'activation_payment_status': paymentProofUrl.isEmpty
+            ? 'Belum Bayar'
+            : 'Menunggu Konfirmasi',
+        'activation_payment_proof_url': paymentProofUrl,
+        'owner_activation_fee': activationFee,
+        'owner_activation_discount': voucherDiscount,
+        'owner_voucher_code': existingVoucher?.code ?? '',
+        'owner_application_submitted_at': DateTime.now()
+            .toUtc()
+            .toIso8601String(),
+        'admin_notes': '',
+        'owner_status': 'Menunggu aktivasi admin',
+      });
+
+      await _client.from('kos').insert({
+        'owner_id': user.id,
+        'owner_name': ownerName,
+        'owner_status': 'Menunggu aktivasi admin',
+        'owner_photo': user.photoURL ?? photoUrl,
+        'bank_account': bankAccount,
+        'nama_kos': kosName,
+        'area': area,
+        'alamat': address,
+        'deskripsi': description,
+        'harga_mulai': monthlyPrice,
+        'fasilitas': facilities,
+        'gender': category,
+        'latitude': latitude,
+        'longitude': longitude,
+        'google_maps_link': googleMapsLink,
+        'foto_urls': [photoUrl],
+        'rating': 0,
+        'total_review': 0,
+        'total_rooms': availableRooms,
+        'available_rooms': availableRooms,
+        'status': 'pending_review',
+      });
+    } on supabase.PostgrestException catch (error) {
+      throw SupabaseAppException(
+        plugin: 'supabase',
+        code: error.code ?? 'postgrest-error',
+        message: _ownerKosSaveMessage(error),
+      );
+    } on SupabaseAppException {
+      rethrow;
+    } catch (_) {
+      throw SupabaseAppException(
+        plugin: 'supabase',
+        code: 'register-owner-kos-failed',
+        message: 'Pendaftaran pemilik gagal diproses. Coba lagi.',
+      );
+    }
   }
 
   Future<void> updateOwnerKos({
@@ -369,80 +414,129 @@ class SupabaseService {
     required String paymentProofUrl,
     required String voucherCode,
   }) async {
-    _cachedProfileMap = null;
-    await user.updateDisplayName(ownerName);
-    final userData = await _profileMap(user.id) ?? const <String, dynamic>{};
-    final voucher = await _findOwnerVoucherByCode(voucherCode);
-    final isApprovedOwner =
-        userData['role'] == 'pemilik' &&
-        (userData['account_status'] as String? ?? '') == 'Aktif' &&
-        (userData['verification_status'] as String? ?? '') == 'Terverifikasi';
-    final desiredListingStatus = isApprovedOwner ? 'active' : 'pending_review';
+    final normalizedPhoneNumber = _normalizeIndonesianMobileNumber(
+      phoneNumber,
+    );
+    if (phoneNumber.trim().isNotEmpty && normalizedPhoneNumber == null) {
+      throw SupabaseAppException(
+        plugin: 'validation',
+        code: 'invalid-phone-number',
+        message: _indonesianMobileNumberHint('Nomor HP'),
+      );
+    }
+    if (emergencyContact.trim().isNotEmpty &&
+        !_hasValidIndonesianMobileNumber(emergencyContact)) {
+      throw SupabaseAppException(
+        plugin: 'validation',
+        code: 'invalid-emergency-contact',
+        message: _indonesianMobileNumberHint('Kontak darurat'),
+      );
+    }
 
-    await _client.from('profiles').upsert({
-      'id': user.id,
-      'name': ownerName,
-      'email': user.email ?? '-',
-      'role': isApprovedOwner ? 'pemilik' : 'penyewa',
-      'requested_role': 'pemilik',
-      'is_active': isApprovedOwner,
-      'photo_url': user.photoURL ?? photoUrl,
-      'phone_number': phoneNumber,
-      'ktp_number': ktpNumber,
-      'emergency_contact': emergencyContact,
-      'bank_account': bankAccount,
-      'account_status': isApprovedOwner ? 'Aktif' : 'Menunggu Aktivasi',
-      'verification_status': isApprovedOwner
-          ? 'Terverifikasi'
-          : (paymentProofUrl.isEmpty
-                ? 'Menunggu Pembayaran'
-                : 'Menunggu Verifikasi'),
-      'activation_payment_method': 'Transfer Manual',
-      'activation_payment_status': isApprovedOwner
-          ? 'Lunas'
-          : (paymentProofUrl.isEmpty ? 'Belum Bayar' : 'Menunggu Konfirmasi'),
-      'activation_payment_proof_url': paymentProofUrl,
-      'owner_activation_fee':
-          (userData['owner_activation_fee'] as num?)?.toInt() ??
-          _ownerActivationBaseFee,
-      'owner_activation_discount':
-          voucher?.discountAmount ??
-          (userData['owner_activation_discount'] as num?)?.toInt() ??
-          0,
-      'owner_voucher_code':
-          voucher?.code ?? userData['owner_voucher_code'] as String? ?? '',
-      'owner_application_submitted_at':
-          userData['owner_application_submitted_at'] ??
-          DateTime.now().toUtc().toIso8601String(),
-      'owner_status': isApprovedOwner ? 'Online' : 'Menunggu aktivasi admin',
-    });
+    try {
+      _cachedProfileMap = null;
+      await user.updateDisplayName(ownerName);
+      final userData = await _profileMap(user.id) ?? const <String, dynamic>{};
+      final voucher = await _findOwnerVoucherByCode(voucherCode);
+      final isApprovedOwner =
+          userData['role'] == 'pemilik' &&
+          (userData['account_status'] as String? ?? '') == 'Aktif' &&
+          (userData['verification_status'] as String? ?? '') ==
+              'Terverifikasi';
+      final desiredListingStatus = isApprovedOwner
+          ? 'active'
+          : 'pending_review';
 
-    await _client
-        .from('kos')
-        .update({
-          'owner_id': user.id,
-          'owner_name': ownerName,
-          'owner_status': isApprovedOwner
-              ? 'Online'
-              : 'Menunggu aktivasi admin',
-          'owner_photo': user.photoURL ?? photoUrl,
-          'bank_account': bankAccount,
-          'nama_kos': kosName,
-          'area': area,
-          'alamat': address,
-          'deskripsi': description,
-          'harga_mulai': monthlyPrice,
-          'fasilitas': facilities,
-          'gender': category,
-          'latitude': latitude,
-          'longitude': longitude,
-          'google_maps_link': googleMapsLink,
-          'foto_urls': [photoUrl],
-          'total_rooms': availableRooms,
-          'available_rooms': availableRooms,
-          'status': desiredListingStatus,
-        })
-        .eq('id', kosId);
+      await _client.from('profiles').upsert({
+        'id': user.id,
+        'name': ownerName,
+        'email': user.email ?? '-',
+        'role': isApprovedOwner ? 'pemilik' : 'penyewa',
+        'requested_role': 'pemilik',
+        'is_active': isApprovedOwner,
+        'photo_url': user.photoURL ?? photoUrl,
+        'phone_number':
+            normalizedPhoneNumber ?? (userData['phone_number'] as String? ?? ''),
+        'ktp_number': ktpNumber.isNotEmpty
+            ? ktpNumber
+            : (userData['ktp_number'] as String? ?? ''),
+        'emergency_contact': emergencyContact.isNotEmpty
+            ? emergencyContact
+            : (userData['emergency_contact'] as String? ?? ''),
+        'bank_account': bankAccount.isNotEmpty
+            ? bankAccount
+            : (userData['bank_account'] as String? ?? ''),
+        'account_status': isApprovedOwner ? 'Aktif' : 'Menunggu Aktivasi',
+        'verification_status': isApprovedOwner
+            ? 'Terverifikasi'
+            : (paymentProofUrl.isEmpty
+                  ? 'Menunggu Pembayaran'
+                  : 'Menunggu Verifikasi'),
+        'activation_payment_method': 'Transfer Manual',
+        'activation_payment_status': isApprovedOwner
+            ? 'Lunas'
+            : (paymentProofUrl.isEmpty
+                  ? 'Belum Bayar'
+                  : 'Menunggu Konfirmasi'),
+        'activation_payment_proof_url': paymentProofUrl.isNotEmpty
+            ? paymentProofUrl
+            : (userData['activation_payment_proof_url'] as String? ?? ''),
+        'owner_activation_fee':
+            (userData['owner_activation_fee'] as num?)?.toInt() ??
+            _ownerActivationBaseFee,
+        'owner_activation_discount':
+            voucher?.discountAmount ??
+            (userData['owner_activation_discount'] as num?)?.toInt() ??
+            0,
+        'owner_voucher_code':
+            voucher?.code ?? userData['owner_voucher_code'] as String? ?? '',
+        'owner_application_submitted_at':
+            userData['owner_application_submitted_at'] ??
+            DateTime.now().toUtc().toIso8601String(),
+        'owner_status': isApprovedOwner ? 'Online' : 'Menunggu aktivasi admin',
+      });
+
+      await _client
+          .from('kos')
+          .update({
+            'owner_id': user.id,
+            'owner_name': ownerName,
+            'owner_status': isApprovedOwner
+                ? 'Online'
+                : 'Menunggu aktivasi admin',
+            'owner_photo': user.photoURL ?? photoUrl,
+            'bank_account': bankAccount,
+            'nama_kos': kosName,
+            'area': area,
+            'alamat': address,
+            'deskripsi': description,
+            'harga_mulai': monthlyPrice,
+            'fasilitas': facilities,
+            'gender': category,
+            'latitude': latitude,
+            'longitude': longitude,
+            'google_maps_link': googleMapsLink,
+            'foto_urls': [photoUrl],
+            'total_rooms': availableRooms,
+            'available_rooms': availableRooms,
+            'status': desiredListingStatus,
+          })
+          .eq('id', kosId);
+    } on supabase.PostgrestException catch (error) {
+      throw SupabaseAppException(
+        plugin: 'supabase',
+        code: error.code ?? 'postgrest-error',
+        message: _ownerKosSaveMessage(error),
+      );
+    } on SupabaseAppException {
+      rethrow;
+    } catch (_) {
+      throw SupabaseAppException(
+        plugin: 'supabase',
+        code: 'update-owner-kos-failed',
+        message: 'Perubahan listing gagal disimpan. Coba lagi.',
+      );
+    }
   }
 
   Stream<AppUserData?> userProfileStream(String uid) {
@@ -464,6 +558,26 @@ class SupabaseService {
       return null;
     }
     return AppUserData.fromMap(userId, row);
+  }
+
+  String _ownerKosSaveMessage(supabase.PostgrestException error) {
+    final message = error.message;
+    final details = error.details?.toString() ?? '';
+    final hint = error.hint?.toString() ?? '';
+    final combined = '$message $details $hint'.toLowerCase();
+
+    if (combined.contains('latitude') ||
+        combined.contains('longitude') ||
+        combined.contains('google_maps_link')) {
+      return 'Kolom lokasi di Supabase belum siap. Jalankan script `supabase/migration_add_location.sql` di SQL Editor Supabase, lalu coba simpan lagi.';
+    }
+
+    if (combined.contains('row-level security') ||
+        combined.contains('violates row-level security')) {
+      return 'Akses simpan listing ditolak oleh policy Supabase. Periksa RLS/policy tabel profiles dan kos.';
+    }
+
+    return message.isEmpty ? 'Data listing belum berhasil disimpan.' : message;
   }
 
   Future<KosData?> fetchKosById(String kosId) async {
@@ -1035,6 +1149,17 @@ class SupabaseService {
     required String note,
     required String paymentProofUrl,
   }) async {
+    final normalizedPhoneNumber = _normalizeIndonesianMobileNumber(
+      phoneNumber,
+    );
+    if (normalizedPhoneNumber == null) {
+      throw SupabaseAppException(
+        plugin: 'validation',
+        code: 'invalid-phone-number',
+        message: _indonesianMobileNumberHint('Nomor HP'),
+      );
+    }
+
     final user = SupabaseAuth.instance.currentUser!;
     final profileData = await _profileMap(user.id) ?? const <String, dynamic>{};
     final role = profileData['role'] as String? ?? 'penyewa';
@@ -1049,7 +1174,7 @@ class SupabaseService {
 
     await _client
         .from('profiles')
-        .update({'phone_number': phoneNumber})
+        .update({'phone_number': normalizedPhoneNumber})
         .eq('id', user.id);
 
     final durationInMonths = _monthsFromDuration(durationLabel);
