@@ -10,6 +10,7 @@ class KosDetailPage extends StatelessWidget {
     final theme = Theme.of(context);
     final currentUser = SupabaseAuth.instance.currentUser;
     final isOwnKos = currentUser?.id == kos.ownerId;
+    final gallery = kos.gallery.where((url) => url.trim().isNotEmpty).toList();
 
     return Scaffold(
       body: CustomScrollView(
@@ -19,10 +20,48 @@ class KosDetailPage extends StatelessWidget {
             expandedHeight: 260,
             backgroundColor: Colors.white,
             flexibleSpace: FlexibleSpaceBar(
-              background: PageView(
-                children: kos.gallery
-                    .map((image) => Image.network(image, fit: BoxFit.cover))
-                    .toList(),
+              background: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (gallery.isEmpty)
+                    Container(
+                      color: const Color(0xFFEAF5F5),
+                      child: const Icon(
+                        Icons.apartment_rounded,
+                        size: 80,
+                        color: Color(0xFF7E9090),
+                      ),
+                    )
+                  else
+                    PageView(
+                      children: gallery
+                          .map((image) => Image.network(image, fit: BoxFit.cover))
+                          .toList(),
+                    ),
+                  if (gallery.length > 1)
+                    Positioned(
+                      right: 16,
+                      bottom: 16,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.55),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          '${gallery.length} foto',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
           ),
@@ -335,7 +374,11 @@ class KosDetailPage extends StatelessWidget {
                         }
                       },
                       icon: const Icon(Icons.chat_rounded),
-                      label: const Text('Chat Pemilik'),
+                      label: const _BottomActionLabel('Chat'),
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size.fromHeight(52),
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -370,14 +413,18 @@ class KosDetailPage extends StatelessWidget {
                                 ),
                               );
                             },
-                      child: Text(
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size.fromHeight(52),
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                      ),
+                      child: _BottomActionLabel(
                         isOwnKos
-                            ? 'Edit Listing'
+                            ? 'Edit'
                             : isOwner
-                            ? 'Akun Pemilik'
+                            ? 'Pemilik'
                             : kos.availableRooms <= 0
-                            ? 'Kamar Penuh'
-                            : 'Booking Sekarang',
+                            ? 'Penuh'
+                            : 'Booking',
                       ),
                     ),
                   ),
@@ -386,6 +433,25 @@ class KosDetailPage extends StatelessWidget {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _BottomActionLabel extends StatelessWidget {
+  const _BottomActionLabel(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        textAlign: TextAlign.center,
       ),
     );
   }

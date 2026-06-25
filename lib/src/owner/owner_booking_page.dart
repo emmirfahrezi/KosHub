@@ -301,7 +301,7 @@ class _OwnerBookingPageState extends State<OwnerBookingPage> {
       OutlinedButton.icon(
         onPressed: isUpdating ? null : () => _openChat(booking),
         icon: const Icon(Icons.chat_rounded),
-        label: const Text('Chat Penyewa'),
+        label: const Text('Chat'),
       ),
     ];
 
@@ -324,7 +324,7 @@ class _OwnerBookingPageState extends State<OwnerBookingPage> {
           onPressed: isUpdating
               ? null
               : () => _updateBookingStatus(booking, 'Sudah Check-in'),
-          child: const Text('Tandai Check-in'),
+          child: const Text('Check-in'),
         ),
         FilledButton.tonal(
           onPressed: isUpdating ? null : () => _rejectBooking(booking),
@@ -337,7 +337,7 @@ class _OwnerBookingPageState extends State<OwnerBookingPage> {
           onPressed: isUpdating
               ? null
               : () => _updateBookingStatus(booking, 'Selesai'),
-          child: const Text('Pindah ke Riwayat'),
+          child: const Text('Riwayat'),
         ),
       );
     }

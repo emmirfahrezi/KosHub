@@ -84,7 +84,7 @@ class TransactionDetailPage extends StatelessWidget {
                   ),
                 );
               },
-              child: const Text('Kirim Reminder'),
+              child: const Text('Reminder'),
             ),
             OutlinedButton(
               onPressed: () {
@@ -96,7 +96,7 @@ class TransactionDetailPage extends StatelessWidget {
                   ),
                 );
               },
-              child: const Text('Download Invoice'),
+              child: const Text('Invoice'),
             ),
             FilledButton(
               onPressed: booking.paymentStatus == 'Lunas'
@@ -324,7 +324,7 @@ class RoomDetailPage extends StatelessWidget {
                     );
                   }
                 },
-                child: const Text('Tandai Sudah Diisi'),
+                child: const Text('Tandai Terisi'),
               ),
           ],
         ),

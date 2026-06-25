@@ -2,6 +2,10 @@ part of '../../main.dart';
 
 String _currency(int amount) {
   final digits = amount.toString();
+  return 'Rp ${_groupDigits(digits)}';
+}
+
+String _groupDigits(String digits) {
   final buffer = StringBuffer();
   for (var i = 0; i < digits.length; i++) {
     final reverseIndex = digits.length - i;
@@ -10,7 +14,23 @@ String _currency(int amount) {
       buffer.write('.');
     }
   }
-  return 'Rp $buffer';
+  return buffer.toString();
+}
+
+String _formatNumericInput(String value) {
+  final digits = value.replaceAll(RegExp(r'\D'), '');
+  if (digits.isEmpty) {
+    return '';
+  }
+  return _groupDigits(digits);
+}
+
+int? _parseNumericInput(String value) {
+  final digits = value.replaceAll(RegExp(r'\D'), '');
+  if (digits.isEmpty) {
+    return null;
+  }
+  return int.tryParse(digits);
 }
 
 String _supabaseMessage(SupabaseAppException error) {
@@ -559,14 +579,41 @@ const List<String> _cancelReasons = [
   'Tidak sesuai aturan',
 ];
 
-const List<String> _paymentStatuses = [
-  'Lunas',
-  'Pending',
-  'Belum Bayar',
-  'Overdue',
-];
-
 const int _ownerActivationBaseFee = 250000;
+const Set<String> _freeOwnerActivationVoucherCodes = {'KOSHUB99'};
+
+bool _isFreeOwnerActivationVoucherCode(String code) {
+  return _freeOwnerActivationVoucherCodes.contains(code.trim().toUpperCase());
+}
+
+int _ownerActivationDiscountFromVoucher(
+  OwnerVoucherData? voucher, {
+  int activationFee = _ownerActivationBaseFee,
+}) {
+  if (voucher == null) {
+    return 0;
+  }
+  if (_isFreeOwnerActivationVoucherCode(voucher.code)) {
+    return activationFee;
+  }
+  return math.min(voucher.discountAmount, activationFee);
+}
+
+OwnerVoucherData? _builtInOwnerActivationVoucherForCode(String code) {
+  final normalizedCode = code.trim().toUpperCase();
+  if (!_isFreeOwnerActivationVoucherCode(normalizedCode)) {
+    return null;
+  }
+  return OwnerVoucherData(
+    id: 'built-in-$normalizedCode',
+    code: normalizedCode,
+    title: 'Voucher Aktivasi Gratis',
+    description: 'Voucher khusus aktivasi owner KosHub.',
+    discountAmount: _ownerActivationBaseFee,
+    isActive: true,
+    createdAt: DateTime.fromMillisecondsSinceEpoch(0),
+  );
+}
 
 int _monthsFromDuration(String durationLabel) {
   return int.tryParse(durationLabel.split(' ').first) ?? 1;
@@ -669,21 +716,6 @@ String _dayKey(DateTime date) {
 
 bool _isSameDay(DateTime a, DateTime b) {
   return a.year == b.year && a.month == b.month && a.day == b.day;
-}
-
-DateTime _nextBillingDueDate(DateTime startDate, DateTime reference) {
-  var dueDate = DateTime(reference.year, reference.month, startDate.day);
-  final lastDay = DateTime(reference.year, reference.month + 1, 0).day;
-  if (startDate.day > lastDay) {
-    dueDate = DateTime(reference.year, reference.month, lastDay);
-  }
-  if (!dueDate.isAfter(reference)) {
-    final nextMonth = DateTime(reference.year, reference.month + 1, 1);
-    final nextLastDay = DateTime(nextMonth.year, nextMonth.month + 1, 0).day;
-    final nextDay = math.min(startDate.day, nextLastDay);
-    dueDate = DateTime(nextMonth.year, nextMonth.month, nextDay);
-  }
-  return dueDate;
 }
 
 String _checkInCountdownLabel(DateTime startDate) {

@@ -114,7 +114,7 @@ class OwnerBookingDetailPage extends StatelessWidget {
           );
         },
         icon: const Icon(Icons.chat_rounded),
-        label: const Text('Chat User'),
+        label: const Text('Chat'),
       ),
     ];
 
@@ -135,7 +135,7 @@ class OwnerBookingDetailPage extends StatelessWidget {
       actions.add(
         FilledButton(
           onPressed: () => _updateBookingStatus(context, 'Sudah Check-in'),
-          child: const Text('Tandai Check-in'),
+          child: const Text('Check-in'),
         ),
       );
     } else if (booking.status == 'Sudah Check-in') {
@@ -149,7 +149,7 @@ class OwnerBookingDetailPage extends StatelessWidget {
               ),
             );
           },
-          child: const Text('Lihat Penghuni'),
+          child: const Text('Penghuni'),
         ),
       );
     }

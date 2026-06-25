@@ -178,7 +178,7 @@ class OwnerRoomsPage extends StatelessWidget {
                             );
                           },
                           icon: const Icon(Icons.edit_rounded),
-                          label: const Text('Edit Listing Kos'),
+                          label: const Text('Edit Kos'),
                         ),
                       ],
                     ),

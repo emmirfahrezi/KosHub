@@ -26,14 +26,10 @@ class _EmptyStateCard extends StatelessWidget {
   const _EmptyStateCard({
     required this.title,
     required this.subtitle,
-    this.buttonLabel,
-    this.onPressed,
   });
 
   final String title;
   final String subtitle;
-  final String? buttonLabel;
-  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -53,10 +49,6 @@ class _EmptyStateCard extends StatelessWidget {
             subtitle,
             style: const TextStyle(color: Color(0xFF5D6B6B), height: 1.45),
           ),
-          if (buttonLabel != null && onPressed != null) ...[
-            const SizedBox(height: 16),
-            FilledButton(onPressed: onPressed, child: Text(buttonLabel!)),
-          ],
         ],
       ),
     );
@@ -460,99 +452,6 @@ class _KosCard extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _PromoBanner extends StatelessWidget {
-  const _PromoBanner({this.banner});
-
-  final HomeBannerData? banner;
-
-  @override
-  Widget build(BuildContext context) {
-    final imageUrl = banner?.imageUrl.isNotEmpty == true
-        ? banner!.imageUrl
-        : _sampleKosMap2['foto_urls'][1] as String;
-    final title = banner?.title.trim().isNotEmpty == true
-        ? banner!.title
-        : 'FLASH SALE';
-    final headline = banner?.subtitle.trim().isNotEmpty == true
-        ? banner!.subtitle
-        : 'Diskon Rp 200 ribu';
-    final description = banner == null
-        ? 'Untuk penghuni baru bulan ini'
-        : 'Promo khusus untuk penghuni baru.';
-    return Container(
-      height: 148,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
-        color: const Color(0xFFFFDAD5),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: Row(
-              children: [
-                const Spacer(),
-                Expanded(child: Image.network(imageUrl, fit: BoxFit.cover)),
-              ],
-            ),
-          ),
-          Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                  colors: [
-                    const Color(0xFFFFDAD5),
-                    const Color(0xFFFFDAD5).withValues(alpha: 0.78),
-                    const Color(0xFFFFDAD5).withValues(alpha: 0.12),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          Padding(
-            padding: EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    color: Color(0xFF752219),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-                SizedBox(height: 6),
-                Text(
-                  headline,
-                  style: TextStyle(
-                    color: Color(0xFF752219),
-                    fontSize: 24,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  description,
-                  style: TextStyle(
-                    color: Color(0xFF752219),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -1096,44 +995,6 @@ class _StatusPill extends StatelessWidget {
   }
 }
 
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({
-    required this.title,
-    required this.actionLabel,
-    required this.onTap,
-  });
-
-  final String title;
-  final String actionLabel;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            title,
-            style: Theme.of(
-              context,
-            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
-          ),
-        ),
-        TextButton(
-          onPressed: onTap,
-          child: Text(
-            actionLabel,
-            style: const TextStyle(
-              color: Color(0xFF006A6A),
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _ProfileHeader extends StatelessWidget {
   const _ProfileHeader({
     required this.name,
@@ -1553,14 +1414,14 @@ class _ActionBarButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final child = icon == null
-        ? Text(label)
+        ? _ActionBarLabel(label)
         : Row(
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(icon, size: 18),
               const SizedBox(width: 8),
-              Flexible(child: Text(label, textAlign: TextAlign.center)),
+              Flexible(child: _ActionBarLabel(label)),
             ],
           );
 
@@ -1612,6 +1473,25 @@ class _ActionBarButton extends StatelessWidget {
 }
 
 enum _ActionBarButtonVariant { outlined, filled, tonal }
+
+class _ActionBarLabel extends StatelessWidget {
+  const _ActionBarLabel(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        textAlign: TextAlign.center,
+      ),
+    );
+  }
+}
 
 class _AdminActionTile extends StatelessWidget {
   const _AdminActionTile({

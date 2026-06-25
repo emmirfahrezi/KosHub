@@ -288,6 +288,7 @@ class SupabaseService {
     required String googleMapsLink,
     required List<String> facilities,
     required String photoUrl,
+    required List<String> photoUrls,
     required String phoneNumber,
     required String ktpNumber,
     required String emergencyContact,
@@ -305,7 +306,8 @@ class SupabaseService {
         message: _indonesianMobileNumberHint('Nomor HP'),
       );
     }
-    if (!_hasValidIndonesianMobileNumber(emergencyContact)) {
+    if (emergencyContact.trim().isNotEmpty &&
+        !_hasValidIndonesianMobileNumber(emergencyContact)) {
       throw SupabaseAppException(
         plugin: 'validation',
         code: 'invalid-emergency-contact',
@@ -316,9 +318,17 @@ class SupabaseService {
     try {
       _cachedProfileMap = null;
       await user.updateDisplayName(ownerName);
-      final existingVoucher = await _findOwnerVoucherByCode(voucherCode);
-      final voucherDiscount = existingVoucher?.discountAmount ?? 0;
+      final galleryUrls = photoUrls.isEmpty ? [photoUrl] : photoUrls;
+      final existingVoucher = await _resolveOwnerVoucherByCode(voucherCode);
       final activationFee = _ownerActivationBaseFee;
+      final voucherDiscount = _ownerActivationDiscountFromVoucher(
+        existingVoucher,
+        activationFee: activationFee,
+      );
+      final isFreeActivation = activationFee - voucherDiscount <= 0;
+      final activationPaymentMethod = isFreeActivation
+          ? 'Voucher ${existingVoucher?.code ?? ''}'.trim()
+          : 'Transfer Manual';
 
       await _client.from('profiles').upsert({
         'id': user.id,
@@ -330,14 +340,18 @@ class SupabaseService {
         'photo_url': user.photoURL ?? photoUrl,
         'phone_number': normalizedPhoneNumber,
         'ktp_number': ktpNumber,
-        'emergency_contact': emergencyContact,
+        'emergency_contact': emergencyContact.trim(),
         'bank_account': bankAccount,
         'account_status': 'Menunggu Aktivasi',
-        'verification_status': paymentProofUrl.isEmpty
+        'verification_status': isFreeActivation
+            ? 'Menunggu Verifikasi'
+            : paymentProofUrl.isEmpty
             ? 'Menunggu Pembayaran'
             : 'Menunggu Verifikasi',
-        'activation_payment_method': 'Transfer Manual',
-        'activation_payment_status': paymentProofUrl.isEmpty
+        'activation_payment_method': activationPaymentMethod,
+        'activation_payment_status': isFreeActivation
+            ? 'Lunas'
+            : paymentProofUrl.isEmpty
             ? 'Belum Bayar'
             : 'Menunggu Konfirmasi',
         'activation_payment_proof_url': paymentProofUrl,
@@ -367,7 +381,7 @@ class SupabaseService {
         'latitude': latitude,
         'longitude': longitude,
         'google_maps_link': googleMapsLink,
-        'foto_urls': [photoUrl],
+        'foto_urls': galleryUrls,
         'rating': 0,
         'total_review': 0,
         'total_rooms': availableRooms,
@@ -407,6 +421,7 @@ class SupabaseService {
     required String googleMapsLink,
     required List<String> facilities,
     required String photoUrl,
+    required List<String> photoUrls,
     required String phoneNumber,
     required String ktpNumber,
     required String emergencyContact,
@@ -437,7 +452,27 @@ class SupabaseService {
       _cachedProfileMap = null;
       await user.updateDisplayName(ownerName);
       final userData = await _profileMap(user.id) ?? const <String, dynamic>{};
-      final voucher = await _findOwnerVoucherByCode(voucherCode);
+      final galleryUrls = photoUrls.isEmpty ? [photoUrl] : photoUrls;
+      final voucher = await _resolveOwnerVoucherByCode(voucherCode);
+      final activationFee =
+          (userData['owner_activation_fee'] as num?)?.toInt() ??
+          _ownerActivationBaseFee;
+      final voucherDiscount = voucher == null
+          ? math.min(
+              (userData['owner_activation_discount'] as num?)?.toInt() ?? 0,
+              activationFee,
+            )
+          : _ownerActivationDiscountFromVoucher(
+              voucher,
+              activationFee: activationFee,
+            );
+      final isFreeActivation = activationFee - voucherDiscount <= 0;
+      final storedVoucherCode =
+          userData['owner_voucher_code'] as String? ?? '';
+      final paymentVoucherCode = voucher?.code ?? storedVoucherCode;
+      final freeActivationPaymentMethod = paymentVoucherCode.isEmpty
+          ? 'Voucher Gratis'
+          : 'Voucher $paymentVoucherCode';
       final isApprovedOwner =
           userData['role'] == 'pemilik' &&
           (userData['account_status'] as String? ?? '') == 'Aktif' &&
@@ -469,27 +504,27 @@ class SupabaseService {
         'account_status': isApprovedOwner ? 'Aktif' : 'Menunggu Aktivasi',
         'verification_status': isApprovedOwner
             ? 'Terverifikasi'
-            : (paymentProofUrl.isEmpty
+            : (isFreeActivation
+                  ? 'Menunggu Verifikasi'
+                  : paymentProofUrl.isEmpty
                   ? 'Menunggu Pembayaran'
                   : 'Menunggu Verifikasi'),
-        'activation_payment_method': 'Transfer Manual',
+        'activation_payment_method': isFreeActivation && !isApprovedOwner
+            ? freeActivationPaymentMethod
+            : 'Transfer Manual',
         'activation_payment_status': isApprovedOwner
             ? 'Lunas'
-            : (paymentProofUrl.isEmpty
+            : (isFreeActivation
+                  ? 'Lunas'
+                  : paymentProofUrl.isEmpty
                   ? 'Belum Bayar'
                   : 'Menunggu Konfirmasi'),
         'activation_payment_proof_url': paymentProofUrl.isNotEmpty
             ? paymentProofUrl
             : (userData['activation_payment_proof_url'] as String? ?? ''),
-        'owner_activation_fee':
-            (userData['owner_activation_fee'] as num?)?.toInt() ??
-            _ownerActivationBaseFee,
-        'owner_activation_discount':
-            voucher?.discountAmount ??
-            (userData['owner_activation_discount'] as num?)?.toInt() ??
-            0,
-        'owner_voucher_code':
-            voucher?.code ?? userData['owner_voucher_code'] as String? ?? '',
+        'owner_activation_fee': activationFee,
+        'owner_activation_discount': voucherDiscount,
+        'owner_voucher_code': voucher?.code ?? storedVoucherCode,
         'owner_application_submitted_at':
             userData['owner_application_submitted_at'] ??
             DateTime.now().toUtc().toIso8601String(),
@@ -516,7 +551,7 @@ class SupabaseService {
             'latitude': latitude,
             'longitude': longitude,
             'google_maps_link': googleMapsLink,
-            'foto_urls': [photoUrl],
+            'foto_urls': galleryUrls,
             'total_rooms': availableRooms,
             'available_rooms': availableRooms,
             'status': desiredListingStatus,
@@ -992,6 +1027,15 @@ class SupabaseService {
     await _client.from('owner_vouchers').delete().eq('id', voucherId);
   }
 
+  Future<int> ownerActivationDiscountForCode(String code) async {
+    final voucher = await _resolveOwnerVoucherByCode(code);
+    return _ownerActivationDiscountFromVoucher(voucher);
+  }
+
+  Future<OwnerVoucherData?> activeOwnerVoucherForCode(String code) {
+    return _resolveOwnerVoucherByCode(code);
+  }
+
   Future<void> updateUserFromAdmin({
     required String userId,
     required String role,
@@ -1179,7 +1223,7 @@ class SupabaseService {
 
     final durationInMonths = _monthsFromDuration(durationLabel);
     final endDate = _addMonths(startDate, durationInMonths);
-    final bookingId = await _client.rpc(
+    await _client.rpc(
       'create_booking_and_decrement_room',
       params: {
         'p_kos_id': kos.id,
@@ -1410,10 +1454,11 @@ class SupabaseService {
     if (code.trim().isEmpty) {
       return null;
     }
+    final normalizedCode = code.trim().toUpperCase();
     final row = await _client
         .from('owner_vouchers')
         .select()
-        .eq('code', code.trim().toUpperCase())
+        .ilike('code', normalizedCode)
         .eq('is_active', true)
         .limit(1)
         .maybeSingle();
@@ -1421,6 +1466,11 @@ class SupabaseService {
       return null;
     }
     return OwnerVoucherData.fromMap(row['id'].toString(), row);
+  }
+
+  Future<OwnerVoucherData?> _resolveOwnerVoucherByCode(String code) async {
+    return await _findOwnerVoucherByCode(code) ??
+        _builtInOwnerActivationVoucherForCode(code);
   }
 
   Future<Map<String, dynamic>?> _profileMap(String userId) async {

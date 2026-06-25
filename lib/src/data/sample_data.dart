@@ -29,7 +29,7 @@ class DemoTenantAccount {
   final String notes;
 }
 
-const List<DemoTenantAccount> _demoTenantAccounts = [
+const List<DemoTenantAccount> demoTenantAccounts = [
   DemoTenantAccount(
     name: 'Alya Putri Maheswari',
     email: 'demo.penyewa1@koshub.app',

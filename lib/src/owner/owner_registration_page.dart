@@ -23,13 +23,11 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
   final _photoController = TextEditingController();
   final _phoneController = TextEditingController();
   final _ktpController = TextEditingController();
-  final _emergencyController = TextEditingController();
   final _bankAccountController = TextEditingController();
   final _paymentProofController = TextEditingController();
   final _voucherController = TextEditingController();
   final _googleMapsLinkController = TextEditingController();
-  Uint8List? _selectedKosPhotoBytes;
-  String? _selectedKosPhotoName;
+  final List<String> _kosPhotoUrls = [];
   Uint8List? _selectedPaymentProofBytes;
   String? _selectedPaymentProofName;
 
@@ -38,6 +36,9 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
   int _discountAmount = 0;
   bool _uploadingKosPhoto = false;
   bool _uploadingPaymentProof = false;
+  bool _checkingVoucher = false;
+  String? _appliedVoucherCode;
+  String? _voucherFeedback;
 
   @override
   void initState() {
@@ -57,29 +58,35 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
     _descriptionController.text = existingKos?.description ?? '';
     _priceController.text = existingKos == null
         ? ''
-        : existingKos.price.toString();
+        : _formatNumericInput(existingKos.price.toString());
+    _priceController.addListener(_handlePriceChanged);
     _roomController.text = existingKos == null
         ? '1'
         : existingKos.availableRooms.toString();
     _facilityController.text = existingKos?.facilities.join(', ') ?? '';
-    _photoController.text =
-        existingKos != null && existingKos.gallery.isNotEmpty
-        ? existingKos.gallery.first
-        : '';
+    _kosPhotoUrls
+      ..clear()
+      ..addAll(existingKos?.gallery ?? const <String>[]);
+    _photoController.text = _kosPhotoUrls.isEmpty ? '' : _kosPhotoUrls.first;
     _phoneController.text = widget.profile?.phoneNumber == '-'
         ? ''
         : widget.profile?.phoneNumber ?? '';
     _ktpController.text = widget.profile?.ktpNumber == '-'
         ? ''
         : widget.profile?.ktpNumber ?? '';
-    _emergencyController.text = widget.profile?.emergencyContact == '-'
-        ? ''
-        : widget.profile?.emergencyContact ?? '';
     _bankAccountController.text = storedBankAccount;
     _paymentProofController.text =
         widget.profile?.activationPaymentProofUrl ?? '';
     _voucherController.text = widget.profile?.ownerVoucherCode ?? '';
+    _voucherController.addListener(_handleVoucherCodeChanged);
     _discountAmount = widget.profile?.ownerActivationDiscount ?? 0;
+    if (_isFreeOwnerActivationVoucherCode(_voucherController.text)) {
+      _discountAmount = _ownerActivationBaseFee;
+    }
+    if (_voucherController.text.trim().isNotEmpty && _discountAmount > 0) {
+      _appliedVoucherCode = _voucherController.text.trim().toUpperCase();
+      _voucherFeedback = 'Voucher sudah digunakan.';
+    }
     _selectedCategory = existingKos?.category ?? 'Campur';
     // Pre-fill Google Maps link from existing kos
     if (existingKos != null && existingKos.googleMapsLink.isNotEmpty) {
@@ -97,18 +104,44 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
     _areaController.dispose();
     _addressController.dispose();
     _descriptionController.dispose();
+    _priceController.removeListener(_handlePriceChanged);
     _priceController.dispose();
     _roomController.dispose();
     _facilityController.dispose();
     _photoController.dispose();
     _phoneController.dispose();
     _ktpController.dispose();
-    _emergencyController.dispose();
     _bankAccountController.dispose();
     _paymentProofController.dispose();
+    _voucherController.removeListener(_handleVoucherCodeChanged);
     _voucherController.dispose();
     _googleMapsLinkController.dispose();
     super.dispose();
+  }
+
+  void _handleVoucherCodeChanged() {
+    final normalizedCode = _voucherController.text.trim().toUpperCase();
+    if (normalizedCode != (_appliedVoucherCode ?? '') &&
+        (_appliedVoucherCode != null ||
+            _discountAmount != 0 ||
+            _voucherFeedback != null)) {
+      setState(() {
+        _appliedVoucherCode = null;
+        _discountAmount = 0;
+        _voucherFeedback = null;
+      });
+    }
+  }
+
+  void _handlePriceChanged() {
+    final formatted = _formatNumericInput(_priceController.text);
+    if (formatted == _priceController.text) {
+      return;
+    }
+    _priceController.value = TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
   }
 
   @override
@@ -121,12 +154,13 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
       0,
       _ownerActivationBaseFee - _discountAmount,
     );
+    final isFreeActivation = !isApprovedOwner && feeAfterDiscount == 0;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(
           isApprovedOwner
-              ? 'Edit Listing Kos'
+              ? 'Edit Kos'
               : isEditing
               ? 'Edit Pengajuan Pemilik'
               : 'Daftar Pemilik Kos',
@@ -201,9 +235,14 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
                     bold: true,
                   ),
                   const SizedBox(height: 12),
-                  const Text(
-                    'Upload bukti transfer manual agar admin bisa konfirmasi dan mengaktifkan akun pemilik kos.',
-                    style: TextStyle(color: Color(0xFF5D6B6B), height: 1.45),
+                  Text(
+                    isFreeActivation
+                        ? 'Voucher menanggung biaya aktivasi. Admin tetap akan mengecek data owner dan listing sebelum akun diaktifkan.'
+                        : 'Upload bukti transfer manual agar admin bisa konfirmasi dan mengaktifkan akun pemilik kos.',
+                    style: const TextStyle(
+                      color: Color(0xFF5D6B6B),
+                      height: 1.45,
+                    ),
                   ),
                 ],
               ),
@@ -221,13 +260,6 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
               label: 'Nomor KTP',
               hintText: 'Masukkan nomor KTP pemilik',
               keyboardType: TextInputType.number,
-            ),
-            const SizedBox(height: 16),
-            _InputField(
-              controller: _emergencyController,
-              label: 'Kontak darurat',
-              hintText: 'Contoh: Ibu Sari - 081234567890',
-              keyboardType: TextInputType.phone,
             ),
             const SizedBox(height: 16),
             _InputField(
@@ -249,8 +281,42 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
                     _InputField(
                       controller: _voucherController,
                       label: 'Kode voucher owner',
-                      hintText: 'Opsional, contoh: OWNERHEMAT',
+                      hintText: 'Opsional, contoh: KOSHUB99',
                     ),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: _checkingVoucher ? null : _applyVoucher,
+                        icon: _checkingVoucher
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(Icons.local_offer_rounded),
+                        label: Text(
+                          _checkingVoucher
+                              ? 'Mengecek Voucher...'
+                              : 'Gunakan Voucher',
+                        ),
+                      ),
+                    ),
+                    if (_voucherFeedback != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        _voucherFeedback!,
+                        style: TextStyle(
+                          color: _discountAmount > 0
+                              ? const Color(0xFF006A6A)
+                              : const Color(0xFF9F4035),
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
                     if (vouchers.isNotEmpty) ...[
                       const SizedBox(height: 12),
                       Wrap(
@@ -265,7 +331,6 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
                                 onPressed: () {
                                   setState(() {
                                     _voucherController.text = voucher.code;
-                                    _discountAmount = voucher.discountAmount;
                                   });
                                 },
                               ),
@@ -278,16 +343,19 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
               },
             ),
             const SizedBox(height: 16),
-            _UploadImageCard(
-              label: 'Bukti pembayaran aktivasi',
-              hint: 'Upload bukti transfer dari galeri, bukan tempel URL lagi.',
-              imageUrl: _paymentProofController.text.trim(),
-              imageBytes: _selectedPaymentProofBytes,
-              fileName: _selectedPaymentProofName,
-              onPick: _pickPaymentProofImage,
-              isLoading: _uploadingPaymentProof,
-            ),
-            const SizedBox(height: 20),
+            if (!isFreeActivation) ...[
+              _UploadImageCard(
+                label: 'Bukti pembayaran aktivasi',
+                hint:
+                    'Upload bukti transfer dari galeri, bukan tempel URL lagi.',
+                imageUrl: _paymentProofController.text.trim(),
+                imageBytes: _selectedPaymentProofBytes,
+                fileName: _selectedPaymentProofName,
+                onPick: _pickPaymentProofImage,
+                isLoading: _uploadingPaymentProof,
+              ),
+              const SizedBox(height: 20),
+            ],
           ],
           _InputField(
             controller: _ownerNameController,
@@ -369,8 +437,8 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
           const SizedBox(height: 16),
           _InputField(
             controller: _priceController,
-            label: 'Harga per bulan',
-            hintText: 'Contoh: 1500000',
+            label: 'Harga per bulan (Rp)',
+            hintText: 'Contoh: 1.500.000',
             keyboardType: TextInputType.number,
           ),
           const SizedBox(height: 16),
@@ -395,14 +463,10 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
             maxLines: 2,
           ),
           const SizedBox(height: 16),
-          _UploadImageCard(
-            label: 'Foto utama kos',
-            hint:
-                'Upload gambar utama listing dari galeri agar tampil di aplikasi.',
-            imageUrl: _photoController.text.trim(),
-            imageBytes: _selectedKosPhotoBytes,
-            fileName: _selectedKosPhotoName,
-            onPick: _pickKosPhotoImage,
+          _KosGalleryUploadCard(
+            imageUrls: _kosPhotoUrls,
+            onPick: _pickKosPhotoImages,
+            onRemove: _removeKosPhoto,
             isLoading: _uploadingKosPhoto,
           ),
           const SizedBox(height: 24),
@@ -437,45 +501,41 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
     );
   }
 
-  Future<void> _pickKosPhotoImage() async {
-    final file = await _picker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 88,
-    );
-    if (file == null) {
+  Future<void> _pickKosPhotoImages() async {
+    final files = await _picker.pickMultiImage(imageQuality: 88);
+    if (files.isEmpty) {
       return;
     }
 
-    final bytes = await file.readAsBytes();
     if (!mounted) {
       return;
     }
-    setState(() {
-      _selectedKosPhotoBytes = bytes;
-      _selectedKosPhotoName = file.name;
-      _uploadingKosPhoto = true;
-    });
+    setState(() => _uploadingKosPhoto = true);
 
     try {
       final user = SupabaseAuth.instance.currentUser!;
-      final url = await SupabaseService.instance.uploadOwnerImage(
-        user: user,
-        bytes: bytes,
-        fileName: file.name,
-        folder: 'kos-images',
-      );
+      final uploadedUrls = <String>[];
+      for (final file in files) {
+        final bytes = await file.readAsBytes();
+        final url = await SupabaseService.instance.uploadOwnerImage(
+          user: user,
+          bytes: bytes,
+          fileName: file.name,
+          folder: 'kos-images',
+        );
+        uploadedUrls.add(url);
+      }
       if (mounted) {
         setState(() {
-          _photoController.text = url;
+          _kosPhotoUrls.addAll(uploadedUrls);
+          _photoController.text = _kosPhotoUrls.isEmpty
+              ? ''
+              : _kosPhotoUrls.first;
         });
-        _showMessage('Foto kos berhasil diunggah.');
+        _showMessage('${uploadedUrls.length} foto kos berhasil diunggah.');
       }
     } catch (e) {
       if (mounted) {
-        setState(() {
-          _selectedKosPhotoBytes = null;
-          _selectedKosPhotoName = null;
-        });
         _showMessage('Gagal mengunggah foto kos. Silakan coba lagi.');
       }
     } finally {
@@ -537,6 +597,63 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
     }
   }
 
+  Future<void> _applyVoucher() async {
+    final code = _voucherController.text.trim();
+    if (code.isEmpty) {
+      setState(() {
+        _appliedVoucherCode = null;
+        _discountAmount = 0;
+        _voucherFeedback = 'Masukkan kode voucher dulu.';
+      });
+      return;
+    }
+
+    setState(() => _checkingVoucher = true);
+    try {
+      final voucher = await SupabaseService.instance.activeOwnerVoucherForCode(
+        code,
+      );
+      if (!mounted) {
+        return;
+      }
+      if (voucher == null) {
+        setState(() {
+          _appliedVoucherCode = null;
+          _discountAmount = 0;
+          _voucherFeedback = 'Voucher tidak ditemukan atau sudah nonaktif.';
+        });
+        return;
+      }
+
+      final discount = _ownerActivationDiscountFromVoucher(voucher);
+      setState(() {
+        _appliedVoucherCode = voucher.code.trim().toUpperCase();
+        _voucherController.text = voucher.code;
+        _discountAmount = discount;
+        _voucherFeedback = discount > 0
+            ? 'Voucher ${voucher.code} berhasil digunakan.'
+            : 'Voucher valid, tapi belum memiliki potongan.';
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _voucherFeedback = 'Voucher belum bisa dicek. Coba lagi sebentar.';
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _checkingVoucher = false);
+      }
+    }
+  }
+
+  void _removeKosPhoto(String imageUrl) {
+    setState(() {
+      _kosPhotoUrls.remove(imageUrl);
+      _photoController.text = _kosPhotoUrls.isEmpty ? '' : _kosPhotoUrls.first;
+    });
+  }
+
   Future<void> _submit() async {
     if (_uploadingKosPhoto || _uploadingPaymentProof) {
       _showMessage('Mohon tunggu hingga proses upload selesai.');
@@ -546,17 +663,23 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
     final ownerName = _ownerNameController.text.trim();
     final phoneNumber = _phoneController.text.trim();
     final ktpNumber = _ktpController.text.trim();
-    final emergencyContact = _emergencyController.text.trim();
+    const emergencyContact = '';
     final bankAccountInput = _bankAccountController.text.trim();
     final kosName = _kosNameController.text.trim();
     final area = _areaController.text.trim();
     final address = _addressController.text.trim();
     final description = _descriptionController.text.trim();
-    final monthlyPrice = int.tryParse(_priceController.text.trim());
+    final monthlyPrice = _parseNumericInput(_priceController.text);
     final availableRooms = int.tryParse(_roomController.text.trim());
-    var photoUrl = _photoController.text.trim();
+    final photoUrls = List<String>.from(_kosPhotoUrls);
+    final photoUrl = photoUrls.isEmpty ? '' : photoUrls.first;
     var paymentProofUrl = _paymentProofController.text.trim();
-    final voucherCode = _voucherController.text.trim();
+    final enteredVoucherCode = _voucherController.text.trim();
+    final normalizedEnteredVoucherCode = enteredVoucherCode.toUpperCase();
+    final hasAppliedVoucher =
+        _appliedVoucherCode != null &&
+        _appliedVoucherCode == normalizedEnteredVoucherCode;
+    final voucherCode = hasAppliedVoucher ? enteredVoucherCode : '';
     final facilities = _facilityController.text
         .split(',')
         .map((item) => item.trim())
@@ -573,8 +696,11 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
     final bankAccount = bankAccountInput.isNotEmpty
         ? bankAccountInput
         : storedBankAccount;
-    final hasKosPhoto =
-        _selectedKosPhotoBytes != null || photoUrl.trim().isNotEmpty;
+    final resolvedDiscountAmount = hasAppliedVoucher ? _discountAmount : 0;
+    final isFreeActivation =
+        !isApprovedOwner &&
+        math.max(0, _ownerActivationBaseFee - resolvedDiscountAmount) == 0;
+    final hasKosPhoto = photoUrls.isNotEmpty;
     final hasPaymentProof =
         _selectedPaymentProofBytes != null || paymentProofUrl.trim().isNotEmpty;
 
@@ -613,21 +739,20 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
     if (!isApprovedOwner &&
         (phoneNumber.isEmpty ||
             ktpNumber.isEmpty ||
-            emergencyContact.isEmpty ||
             bankAccount.isEmpty ||
-            !hasPaymentProof)) {
-      _showMessage('Lengkapi identitas owner dan bukti pembayaran aktivasi.');
+            (!isFreeActivation && !hasPaymentProof))) {
+      _showMessage(
+        enteredVoucherCode.isNotEmpty && !hasAppliedVoucher && !hasPaymentProof
+            ? 'Klik Gunakan Voucher dulu atau upload bukti pembayaran aktivasi.'
+            : isFreeActivation
+            ? 'Lengkapi identitas owner sebelum mengirim pengajuan.'
+            : 'Lengkapi identitas owner dan bukti pembayaran aktivasi.',
+      );
       return;
     }
 
     if (facilities.isEmpty) {
       _showMessage('Isi minimal satu fasilitas kos.');
-      return;
-    }
-
-    if (emergencyContact.isNotEmpty &&
-        !_hasValidIndonesianMobileNumber(emergencyContact)) {
-      _showMessage(_indonesianMobileNumberHint('Kontak darurat'));
       return;
     }
 
@@ -650,6 +775,7 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
           googleMapsLink: googleMapsLinkVal,
           facilities: facilities,
           photoUrl: photoUrl,
+          photoUrls: photoUrls,
           phoneNumber: normalizedPhoneNumber ?? phoneNumber,
           ktpNumber: ktpNumber,
           emergencyContact: emergencyContact,
@@ -674,6 +800,7 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
           googleMapsLink: googleMapsLinkVal,
           facilities: facilities,
           photoUrl: photoUrl,
+          photoUrls: photoUrls,
           phoneNumber: normalizedPhoneNumber ?? phoneNumber,
           ktpNumber: ktpNumber,
           emergencyContact: emergencyContact,
@@ -715,6 +842,7 @@ class _OwnerRegistrationPageState extends State<OwnerRegistrationPage> {
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
   }
+
 }
 
 class _UploadImageCard extends StatelessWidget {
@@ -844,7 +972,7 @@ class _UploadImageCard extends StatelessWidget {
                     Positioned.fill(
                       child: Container(
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.85),
+                          color: Colors.white.withValues(alpha: 0.85),
                           borderRadius: BorderRadius.circular(18),
                         ),
                         child: const Column(
@@ -868,6 +996,167 @@ class _UploadImageCard extends StatelessWidget {
                 ],
               ),
             ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _KosGalleryUploadCard extends StatelessWidget {
+  const _KosGalleryUploadCard({
+    required this.imageUrls,
+    required this.onPick,
+    required this.onRemove,
+    required this.isLoading,
+  });
+
+  final List<String> imageUrls;
+  final Future<void> Function() onPick;
+  final ValueChanged<String> onRemove;
+  final bool isLoading;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Foto kos',
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF314040),
+            fontSize: 13,
+            letterSpacing: 0.2,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: const Color(0xFFE4ECEC)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (imageUrls.isEmpty)
+                Container(
+                  width: double.infinity,
+                  height: 150,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF7FBFB),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFFDDE9E9)),
+                  ),
+                  child: const Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.photo_library_outlined,
+                        size: 36,
+                        color: Color(0xFF7E9090),
+                      ),
+                      SizedBox(height: 10),
+                      Text(
+                        'Belum ada foto kos',
+                        style: TextStyle(
+                          color: Color(0xFF7E9090),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                SizedBox(
+                  height: 112,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: imageUrls.length,
+                    separatorBuilder: (_, _) => const SizedBox(width: 10),
+                    itemBuilder: (context, index) {
+                      final imageUrl = imageUrls[index];
+                      return Stack(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(14),
+                            child: SizedBox(
+                              width: 132,
+                              height: 112,
+                              child: Image.network(
+                                imageUrl,
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            left: 8,
+                            top: 8,
+                            child: _TagChip(
+                              label: index == 0 ? 'Utama' : '${index + 1}',
+                              color: index == 0
+                                  ? const Color(0xFF006A6A)
+                                  : const Color(0xFF35589F),
+                            ),
+                          ),
+                          Positioned(
+                            right: 6,
+                            top: 6,
+                            child: Material(
+                              color: Colors.black.withValues(alpha: 0.55),
+                              shape: const CircleBorder(),
+                              child: InkWell(
+                                customBorder: const CircleBorder(),
+                                onTap: isLoading
+                                    ? null
+                                    : () => onRemove(imageUrl),
+                                child: const Padding(
+                                  padding: EdgeInsets.all(6),
+                                  child: Icon(
+                                    Icons.close_rounded,
+                                    color: Colors.white,
+                                    size: 16,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+              const SizedBox(height: 12),
+              const Text(
+                'Foto pertama akan menjadi cover. Foto lainnya tampil sebagai galeri di detail kos.',
+                style: TextStyle(color: Color(0xFF5D6B6B), height: 1.45),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: isLoading ? null : () async => onPick(),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    side: const BorderSide(color: Color(0xFFB8D7D7)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  icon: isLoading
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.add_photo_alternate_rounded),
+                  label: Text(isLoading ? 'Mengunggah...' : 'Tambah Foto'),
+                ),
+              ),
+            ],
           ),
         ),
       ],

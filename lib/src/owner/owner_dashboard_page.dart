@@ -135,7 +135,7 @@ class OwnerDashboardPage extends StatelessWidget {
                               ListTile(
                                 contentPadding: EdgeInsets.zero,
                                 leading: const Icon(Icons.chat_rounded),
-                                title: const Text('Chat Penyewa'),
+                                title: const Text('Chat'),
                                 onTap: () {
                                   Navigator.pop(context);
                                   Navigator.push(

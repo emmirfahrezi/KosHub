@@ -260,7 +260,7 @@ class _OwnerResidentsPageState extends State<OwnerResidentsPage> {
                           children: [
                             FilledButton(
                               onPressed: () => _finishResident(booking),
-                              child: const Text('Pindah ke Riwayat'),
+                              child: const Text('Riwayat'),
                             ),
                           ],
                         ),

@@ -1021,9 +1021,9 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
       bottomSheet: booking.status == 'Dibatalkan'
           ? null
           : SafeArea(
-              minimum: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              minimum: const EdgeInsets.fromLTRB(20, 0, 20, 16),
               child: Container(
-                padding: const EdgeInsets.all(12),
+                padding: EdgeInsets.zero,
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.97),
                   borderRadius: BorderRadius.circular(24),
@@ -1062,7 +1062,7 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
                       ),
                     if (!isHistory) ...[
                       _ActionBarButton(
-                        label: 'Chat Pemilik',
+                        label: 'Chat',
                         icon: Icons.chat_bubble_outline_rounded,
                         onPressed: () async {
                           try {
@@ -1108,7 +1108,7 @@ class _BookingDetailPageState extends State<BookingDetailPage> {
                       ),
                       const SizedBox(height: 10),
                       _ActionBarButton(
-                        label: 'Batalkan Booking',
+                        label: 'Batalkan',
                         icon: Icons.cancel_outlined,
                         variant: _ActionBarButtonVariant.filled,
                         onPressed: booking.status == 'Menunggu Konfirmasi'

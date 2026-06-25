@@ -50,11 +50,6 @@ class _AdminUserDetailPageState extends State<AdminUserDetailPage> {
               children: [
                 _DetailRow(label: 'Nomor HP', value: widget.user.phoneNumber),
                 const SizedBox(height: 10),
-                _DetailRow(
-                  label: 'Kontak darurat',
-                  value: widget.user.emergencyContact,
-                ),
-                const SizedBox(height: 10),
                 _DetailRow(label: 'KTP', value: widget.user.ktpNumber),
                 const SizedBox(height: 10),
                 _DetailRow(
@@ -201,11 +196,6 @@ class _AdminOwnerDetailPageState extends State<AdminOwnerDetailPage> {
                 _DetailRow(label: 'Rekening', value: owner.bankAccountLabel),
                 const SizedBox(height: 10),
                 _DetailRow(label: 'KTP', value: owner.ktpNumber),
-                const SizedBox(height: 10),
-                _DetailRow(
-                  label: 'Kontak darurat',
-                  value: owner.emergencyContact,
-                ),
                 const SizedBox(height: 10),
                 _DetailRow(
                   label: 'Pembayaran aktivasi',
