@@ -199,8 +199,8 @@ class _HomePageState extends State<HomePage> {
                                   final cardWidth =
                                       (constraints.maxWidth - 12) / 2;
                                   final cardHeight = cardWidth < 190
-                                      ? 460.0
-                                      : 420.0;
+                                      ? 330.0
+                                      : 315.0;
 
                                   return GridView.builder(
                                     itemCount: filtered.length,

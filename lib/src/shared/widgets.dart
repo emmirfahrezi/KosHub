@@ -99,31 +99,36 @@ class _HomeHeroState extends State<_HomeHero> {
         ? widget.banner!.subtitle
         : 'Cari lokasi atau nama kos yang cocok buat kamu.';
     return Container(
-      height: 235,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(28),
         color: const Color(0xFFD7F2F1),
       ),
       clipBehavior: Clip.antiAlias,
       child: Stack(
-        fit: StackFit.expand,
         children: [
-          Image.network(imageUrl, fit: BoxFit.cover),
-          DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.white.withValues(alpha: 0.12),
-                  const Color(0xFF003636).withValues(alpha: 0.22),
-                ],
+          Positioned.fill(
+            child: Image.network(imageUrl, fit: BoxFit.cover),
+          ),
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.white.withValues(alpha: 0.12),
+                    const Color(0xFF003636).withValues(alpha: 0.22),
+                  ],
+                ),
               ),
             ),
           ),
-          Padding(
+          Container(
+            constraints: const BoxConstraints(minHeight: 235),
             padding: const EdgeInsets.all(20),
+            alignment: Alignment.bottomLeft,
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
@@ -303,156 +308,180 @@ class _KosCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(24),
-      child: Ink(
-        decoration: BoxDecoration(
-          color: Colors.white,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isGrid = constraints.maxWidth < 250;
+
+        return InkWell(
+          onTap: onTap,
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: const Color(0xFFE2E7E7)),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x0F000000),
-              blurRadius: 16,
-              offset: Offset(0, 8),
+          child: Ink(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: const Color(0xFFE2E7E7)),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x0F000000),
+                  blurRadius: 16,
+                  offset: Offset(0, 8),
+                ),
+              ],
             ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              height: 190,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  ClipRRect(
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(24),
-                    ),
-                    child: Image.network(kos.gallery.first, fit: BoxFit.cover),
-                  ),
-                  Positioned(
-                    left: 12,
-                    top: 12,
-                    child: _TagChip(
-                      label: kos.category,
-                      color: kos.category == 'Eksklusif'
-                          ? const Color(0xFF006A6A)
-                          : const Color(0xFF9F4035),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  height: isGrid ? 140 : 190,
+                  child: Stack(
+                    fit: StackFit.expand,
                     children: [
-                      const Icon(
-                        Icons.star_rounded,
-                        color: Color(0xFFF4B400),
-                        size: 18,
+                      ClipRRect(
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(24),
+                        ),
+                        child: Image.network(kos.gallery.first, fit: BoxFit.cover),
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${kos.rating.toStringAsFixed(1)} (${kos.reviewCount})',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
+                      Positioned(
+                        left: 12,
+                        top: 12,
+                        child: _TagChip(
+                          label: kos.category,
+                          color: kos.category == 'Eksklusif'
+                              ? const Color(0xFF006A6A)
+                              : const Color(0xFF9F4035),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    kos.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    kos.area,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Color(0xFF5D6B6B),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    kos.address,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Color(0xFF839090),
-                      fontSize: 12,
-                      height: 1.4,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: kos.facilities
-                        .take(3)
-                        .map((facility) => _SmallPill(label: facility))
-                        .toList(),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
+                ),
+                Padding(
+                  padding: isGrid
+                      ? const EdgeInsets.all(12)
+                      : const EdgeInsets.fromLTRB(14, 12, 14, 14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(
-                        Icons.meeting_room_rounded,
-                        size: 16,
-                        color: Color(0xFF5D6B6B),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.star_rounded,
+                            color: const Color(0xFFF4B400),
+                            size: isGrid ? 16 : 18,
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              '${kos.rating.toStringAsFixed(1)} (${kos.reviewCount})',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: isGrid ? 11 : 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 4),
+                      SizedBox(height: isGrid ? 4 : 6),
                       Text(
-                        '${kos.availableRooms} kamar tersedia',
-                        style: const TextStyle(
-                          color: Color(0xFF5D6B6B),
-                          fontWeight: FontWeight.w700,
+                        kos.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              fontSize: isGrid ? 14 : 17,
+                              fontWeight: FontWeight.w800,
+                            ),
+                      ),
+                      SizedBox(height: isGrid ? 2 : 4),
+                      Text(
+                        kos.area,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: const Color(0xFF5D6B6B),
+                          fontWeight: FontWeight.w600,
+                          fontSize: isGrid ? 12 : null,
                         ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  RichText(
-                    text: TextSpan(
-                      text: _currency(kos.price),
-                      style: const TextStyle(
-                        color: Color(0xFF006A6A),
-                        fontWeight: FontWeight.w800,
-                        fontSize: 18,
-                      ),
-                      children: const [
-                        TextSpan(
-                          text: ' / bulan',
-                          style: TextStyle(
-                            color: Color(0xFF5D6B6B),
-                            fontWeight: FontWeight.w500,
+                      if (!isGrid) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          kos.address,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Color(0xFF839090),
                             fontSize: 12,
+                            height: 1.4,
                           ),
                         ),
                       ],
-                    ),
+                      SizedBox(height: isGrid ? 6 : 8),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: kos.facilities
+                            .take(isGrid ? 1 : 3)
+                            .map((facility) => _SmallPill(label: facility))
+                            .toList(),
+                      ),
+                      SizedBox(height: isGrid ? 8 : 10),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.meeting_room_rounded,
+                            size: isGrid ? 14 : 16,
+                            color: const Color(0xFF5D6B6B),
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              '${kos.availableRooms} kamar tersedia',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: const Color(0xFF5D6B6B),
+                                fontWeight: FontWeight.w700,
+                                fontSize: isGrid ? 11 : 14,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: isGrid ? 6 : 10),
+                      RichText(
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        text: TextSpan(
+                          text: _currency(kos.price),
+                          style: TextStyle(
+                            color: const Color(0xFF006A6A),
+                            fontWeight: FontWeight.w800,
+                            fontSize: isGrid ? 15 : 18,
+                          ),
+                          children: [
+                            TextSpan(
+                              text: ' / bulan',
+                              style: TextStyle(
+                                color: const Color(0xFF5D6B6B),
+                                fontWeight: FontWeight.w500,
+                                fontSize: isGrid ? 10 : 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }
@@ -772,7 +801,7 @@ class _OwnerMetricCard extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(24),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(24),
@@ -808,7 +837,7 @@ class _OwnerMetricCard extends StatelessWidget {
                   ),
               ],
             ),
-            const Spacer(),
+            const Flexible(child: SizedBox(height: 16)),
             Text(
               title,
               maxLines: 2,
@@ -818,7 +847,7 @@ class _OwnerMetricCard extends StatelessWidget {
                 fontWeight: FontWeight.w700,
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 6),
             FittedBox(
               fit: BoxFit.scaleDown,
               alignment: Alignment.centerLeft,
@@ -831,7 +860,7 @@ class _OwnerMetricCard extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 4),
             Text(
               subtitle,
               maxLines: 2,
