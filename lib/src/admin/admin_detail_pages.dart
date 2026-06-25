@@ -867,7 +867,7 @@ class AdminOwnerVoucherPage extends StatelessWidget {
             itemBuilder: (context, index) {
               final voucher = items[index];
               return _AdminEntityTile(
-                title: '${voucher.code} • ${voucher.title}',
+                title: '${voucher.code} - ${voucher.title}',
                 subtitle:
                     '${voucher.description} | Diskon ${_currency(voucher.discountAmount)}',
                 badge: voucher.isActive ? 'Aktif' : 'Nonaktif',
@@ -1112,20 +1112,34 @@ Future<void> _openVoucherEditor(
     text: existing?.description ?? '',
   );
   final discountController = TextEditingController(
-    text: existing == null ? '' : existing.discountAmount.toString(),
+    text: existing == null
+        ? ''
+        : _formatNumericInput(existing.discountAmount.toString()),
   );
   var isActive = existing?.isActive ?? true;
+  void handleDiscountChanged() {
+    final formatted = _formatNumericInput(discountController.text);
+    if (formatted != discountController.text) {
+      discountController.value = TextEditingValue(
+        text: formatted,
+        selection: TextSelection.collapsed(offset: formatted.length),
+      );
+    }
+  }
 
-  await showDialog<void>(
-    context: context,
-    builder: (context) {
-      return StatefulBuilder(
-        builder: (context, setState) {
-          return AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(24),
-            ),
-            title: Text(existing == null ? 'Tambah Voucher' : 'Edit Voucher'),
+  discountController.addListener(handleDiscountChanged);
+
+  try {
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
+              title: Text(existing == null ? 'Tambah Voucher' : 'Edit Voucher'),
             content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -1138,7 +1152,7 @@ Future<void> _openVoucherEditor(
                   const SizedBox(height: 12),
                   _InputField(
                     controller: titleController,
-                    label: 'Judul voucher',
+                    label: 'Nama voucher',
                     hintText: 'Contoh: Promo owner baru',
                   ),
                   const SizedBox(height: 12),
@@ -1151,8 +1165,8 @@ Future<void> _openVoucherEditor(
                   const SizedBox(height: 12),
                   _InputField(
                     controller: discountController,
-                    label: 'Potongan harga',
-                    hintText: 'Contoh: 50000',
+                    label: 'Diskon aktivasi (Rp)',
+                    hintText: 'Contoh: 250.000',
                     keyboardType: TextInputType.number,
                   ),
                   const SizedBox(height: 12),
@@ -1187,14 +1201,16 @@ Future<void> _openVoucherEditor(
               ),
               FilledButton(
                 onPressed: () async {
+                  final discountAmount =
+                      _parseNumericInput(discountController.text) ?? 0;
                   if (codeController.text.trim().isEmpty ||
                       titleController.text.trim().isEmpty ||
-                      discountController.text.trim().isEmpty) {
+                      discountAmount <= 0) {
                     await _showLightDialog(
                       context,
                       title: 'Data belum lengkap',
                       message:
-                          'Kode voucher, judul, dan potongan harga wajib diisi.',
+                          'Kode voucher, nama voucher, dan diskon wajib diisi.',
                     );
                     return;
                   }
@@ -1204,8 +1220,7 @@ Future<void> _openVoucherEditor(
                       code: codeController.text.trim(),
                       title: titleController.text.trim(),
                       description: descriptionController.text.trim(),
-                      discountAmount:
-                          int.tryParse(discountController.text.trim()) ?? 0,
+                      discountAmount: discountAmount,
                       isActive: isActive,
                     );
                     if (context.mounted) {
@@ -1226,8 +1241,15 @@ Future<void> _openVoucherEditor(
               ),
             ],
           );
-        },
-      );
-    },
-  );
+          },
+        );
+      },
+    );
+  } finally {
+    discountController.removeListener(handleDiscountChanged);
+    codeController.dispose();
+    titleController.dispose();
+    descriptionController.dispose();
+    discountController.dispose();
+  }
 }
