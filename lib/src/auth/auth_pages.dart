@@ -230,6 +230,66 @@ class _AuthPageState extends State<AuthPage> {
                             : Text(_isLogin ? 'Masuk' : 'Daftar'),
                       ),
                     ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: const [
+                        Expanded(child: Divider()),
+                        Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 16),
+                          child: Text(
+                            'atau',
+                            style: TextStyle(
+                              color: Color(0xFF5D6B6B),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        Expanded(child: Divider()),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton(
+                        onPressed: _isLoading
+                            ? null
+                            : () async {
+                                try {
+                                  await SupabaseAuth.instance.signInWithGoogle();
+                                } catch (_) {
+                                  _showMessage('Gagal membuka Google Sign-in.');
+                                }
+                              },
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF182022),
+                          side: const BorderSide(color: Color(0xFFD8E6E6)),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Text(
+                              'G',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFF006A6A),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Text(
+                              _isLogin
+                                  ? 'Masuk dengan Google'
+                                  : 'Daftar dengan Google',
+                              style: const TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),

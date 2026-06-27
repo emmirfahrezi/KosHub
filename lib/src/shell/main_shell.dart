@@ -11,6 +11,18 @@ class _MainShellState extends State<MainShell> {
   int _currentIndex = 0;
 
   @override
+  void initState() {
+    super.initState();
+    final user = SupabaseAuth.instance.currentUser;
+    if (user != null) {
+      SupabaseService.instance.ensureUserProfile(
+        user,
+        fallbackName: user.displayName ?? user.email?.split('@').first ?? 'Pengguna',
+      );
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final user = SupabaseAuth.instance.currentUser!;
 

@@ -508,12 +508,20 @@ class _AdminOwnersPageState extends State<AdminOwnersPage> {
   }
 }
 
-class AdminListingsPage extends StatelessWidget {
+class AdminListingsPage extends StatefulWidget {
   const AdminListingsPage({super.key});
+
+  @override
+  State<AdminListingsPage> createState() => _AdminListingsPageState();
+}
+
+class _AdminListingsPageState extends State<AdminListingsPage> {
+  int _refreshKey = 0;
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<KosData>>(
+      key: ValueKey(_refreshKey),
       stream: SupabaseService.instance.adminKosStream(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -541,13 +549,18 @@ class AdminListingsPage extends StatelessWidget {
                     '${kos.area} | ${kos.availableRooms}/${kos.totalRooms} kamar | ${kos.ownerName}',
                 badge: kos.listingStatusLabel,
                 icon: Icons.apartment_rounded,
-                onTap: () {
-                  Navigator.push(
+                onTap: () async {
+                  await Navigator.push(
                     context,
                     MaterialPageRoute<void>(
                       builder: (_) => AdminListingDetailPage(kos: kos),
                     ),
                   );
+                  if (mounted) {
+                    setState(() {
+                      _refreshKey++;
+                    });
+                  }
                 },
               );
             },

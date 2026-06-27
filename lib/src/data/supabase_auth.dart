@@ -116,6 +116,20 @@ class SupabaseAuth {
     })();
   }
 
+  Future<void> signInWithGoogle() async {
+    try {
+      await _client.auth.signInWithOAuth(
+        supabase.OAuthProvider.google,
+        redirectTo: kIsWeb ? null : 'io.supabase.aplikasikoshub://login-callback/',
+      );
+    } on supabase.AuthException catch (error) {
+      throw SupabaseAuthException(
+        code: _authCode(error),
+        message: error.message,
+      );
+    }
+  }
+
   Future<AuthCredential> signInWithPassword({
     required String email,
     required String password,

@@ -907,7 +907,19 @@ class _UploadImageCard extends StatelessWidget {
                             height: 180,
                             child: imageBytes != null
                                 ? Image.memory(imageBytes!, fit: BoxFit.cover)
-                                : Image.network(imageUrl, fit: BoxFit.cover),
+                                : Image.network(
+                                    imageUrl,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => Container(
+                                      color: const Color(0xFFF7FBFB),
+                                      alignment: Alignment.center,
+                                      child: const Icon(
+                                        Icons.broken_image_rounded,
+                                        size: 40,
+                                        color: Color(0xFFB8D7D7),
+                                      ),
+                                    ),
+                                  ),
                           ),
                         )
                       else

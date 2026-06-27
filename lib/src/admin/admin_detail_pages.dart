@@ -593,12 +593,20 @@ class _AdminPaymentDetailPageState extends State<AdminPaymentDetailPage> {
   }
 }
 
-class AdminReportsPage extends StatelessWidget {
+class AdminReportsPage extends StatefulWidget {
   const AdminReportsPage({super.key});
+
+  @override
+  State<AdminReportsPage> createState() => _AdminReportsPageState();
+}
+
+class _AdminReportsPageState extends State<AdminReportsPage> {
+  int _refreshKey = 0;
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<KosData>>(
+      key: ValueKey(_refreshKey),
       stream: SupabaseService.instance.adminKosStream(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
@@ -624,13 +632,18 @@ class AdminReportsPage extends StatelessWidget {
                 subtitle: '${item.ownerName} | ${item.area}',
                 badge: item.listingStatusLabel,
                 icon: Icons.report_problem_rounded,
-                onTap: () {
-                  Navigator.push(
+                onTap: () async {
+                  await Navigator.push(
                     context,
                     MaterialPageRoute<void>(
                       builder: (_) => AdminListingDetailPage(kos: item),
                     ),
                   );
+                  if (mounted) {
+                    setState(() {
+                      _refreshKey++;
+                    });
+                  }
                 },
               );
             },

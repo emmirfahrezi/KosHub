@@ -226,6 +226,45 @@ class SupabaseService {
         .eq('id', user.id);
   }
 
+  Future<Map<String, dynamic>> updateTenantProfileAndReturn({
+    required User user,
+    required String name,
+    required String phoneNumber,
+    required String photoUrl,
+    String? newPassword,
+  }) async {
+    final normalizedPhoneNumber = _normalizeIndonesianMobileNumber(
+      phoneNumber,
+    );
+    if (normalizedPhoneNumber == null) {
+      throw SupabaseAppException(
+        plugin: 'validation',
+        code: 'invalid-phone-number',
+        message: _indonesianMobileNumberHint('Nomor HP'),
+      );
+    }
+
+    _cachedProfileMap = null;
+    await user.updateProfile(displayName: name, photoUrl: photoUrl);
+    if (newPassword != null && newPassword.trim().isNotEmpty) {
+      await user.updatePassword(newPassword.trim());
+    }
+
+    final result = await _client
+        .from('profiles')
+        .update({
+          'name': name.trim(),
+          'email': user.email ?? '-',
+          'phone_number': normalizedPhoneNumber,
+          'photo_url': photoUrl.trim(),
+        })
+        .eq('id', user.id)
+        .select()
+        .single();
+    return result;
+  }
+
+
   Future<void> updateOwnerBankAccount({
     required User user,
     required String bankAccount,

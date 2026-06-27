@@ -1,7 +1,14 @@
 part of '../../main.dart';
 
-class ProfilePage extends StatelessWidget {
+class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
+
+  @override
+  State<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  int _refreshKey = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -13,6 +20,7 @@ class ProfilePage extends StatelessWidget {
         backgroundColor: Colors.white,
       ),
       body: StreamBuilder<AppUserData?>(
+        key: ValueKey(_refreshKey),
         stream: SupabaseService.instance.userProfileStream(user.id),
         builder: (context, snapshot) {
           final profile = snapshot.data;
@@ -39,30 +47,50 @@ class ProfilePage extends StatelessWidget {
                     children: [
                       _SummaryRow(
                         label: 'Nomor HP',
-                        value:
-                            profile?.phoneNumber == null ||
-                                profile!.phoneNumber == '-' ||
-                                profile.phoneNumber.isEmpty
-                            ? 'Belum diisi'
-                            : profile.phoneNumber,
+                        value: () {
+                          print('DEBUG PHONE NUMBER IN UI: ${profile?.phoneNumber}');
+                          return profile?.phoneNumber == null ||
+                                  profile!.phoneNumber == '-' ||
+                                  profile.phoneNumber.isEmpty
+                              ? 'Belum diisi'
+                              : profile.phoneNumber;
+                        }(),
                       ),
                       const SizedBox(height: 10),
+
                       _SummaryRow(
                         label: 'Role akun',
                         value: profile?.roleLabel ?? 'Penyewa',
+                      ),
+                      const SizedBox(height: 10),
+                      _SummaryRow(
+                        label: 'Status',
+                        value: profile?.accountStatus ?? 'Aktif',
+                      ),
+                      const SizedBox(height: 10),
+                      _SummaryRow(
+                        label: 'Bergabung',
+                        value: profile != null 
+                            ? _formatLongDate(profile.createdAt)
+                            : '-',
                       ),
                       const SizedBox(height: 14),
                       SizedBox(
                         width: double.infinity,
                         child: OutlinedButton.icon(
-                          onPressed: () {
-                            Navigator.push(
+                          onPressed: () async {
+                            await Navigator.push(
                               context,
                               MaterialPageRoute<void>(
                                 builder: (_) =>
                                     TenantProfileEditPage(profile: profile),
                               ),
                             );
+                            if (mounted) {
+                              setState(() {
+                                _refreshKey++;
+                              });
+                            }
                           },
                           icon: const Icon(Icons.edit_rounded),
                           label: const Text('Edit Profil'),
@@ -418,18 +446,6 @@ class _TenantProfileEditPageState extends State<TenantProfileEditPage> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
         children: [
-          Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(24),
-            ),
-            child: Text(
-              widget.introText,
-              style: const TextStyle(color: Color(0xFF5D6B6B), height: 1.45),
-            ),
-          ),
-          const SizedBox(height: 20),
           _InputField(
             controller: _nameController,
             label: 'Nama pengguna',
@@ -445,8 +461,7 @@ class _TenantProfileEditPageState extends State<TenantProfileEditPage> {
           const SizedBox(height: 16),
           _UploadImageCard(
             label: 'Foto profil',
-            hint:
-                'Upload foto profil dari galeri, tidak perlu tempel URL lagi.',
+            hint: 'Upload foto profil dari galeri.',
             imageUrl: _photoController.text.trim(),
             imageBytes: _selectedPhotoBytes,
             fileName: _selectedPhotoName,
@@ -587,6 +602,24 @@ class _TenantProfileEditPageState extends State<TenantProfileEditPage> {
         context,
         title: 'Profil gagal disimpan',
         message: _supabaseMessage(error),
+      );
+    } on supabase.PostgrestException catch (error) {
+      if (!mounted) {
+        return;
+      }
+      _showLightDialog(
+        context,
+        title: 'PostgrestException',
+        message: 'Error: ${error.message}\nDetails: ${error.details}\nHint: ${error.hint}',
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      _showLightDialog(
+        context,
+        title: 'Error Tidak Dikenal',
+        message: error.toString(),
       );
     } finally {
       if (mounted) {
